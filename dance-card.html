@@ -150,6 +150,7 @@
     color:var(--parchment-dim);
   }
   .auth-status .role-dev{color:var(--brass-bright); font-weight:600;}
+  .auth-status .role-contributor{color:var(--denim-bright); font-weight:600;}
   .auth-panel{
     margin-top:10px;
     background:var(--ink-2);
@@ -240,6 +241,38 @@
   .review-btn.approve:hover{background:var(--brass-bright);}
   .review-btn.reject{background:var(--oxblood); color:var(--parchment);}
   .review-btn.reject:hover{background:var(--oxblood-bright);}
+
+  /* ---------- Ratings ---------- */
+  .stars-avg{color:var(--brass-bright); font-size:15px; letter-spacing:1px;}
+  .stars-num{font-family:'Oswald',sans-serif; font-size:12px; color:var(--parchment-dim); margin-left:4px;}
+  .stars-empty{font-style:italic; font-size:12.5px; color:var(--parchment-dim);}
+  .rate-widget{margin-top:8px;}
+  .rate-star{
+    background:none;
+    border:none;
+    font-size:22px;
+    color:var(--line-hair);
+    cursor:pointer;
+    padding:0 2px;
+    line-height:1;
+  }
+  .rate-star.filled{color:var(--brass-bright);}
+  .rate-star:hover{color:var(--brass);}
+  .rate-hint{
+    font-style:italic;
+    font-size:12px;
+    color:var(--parchment-dim);
+    margin-top:8px;
+  }
+  .rating-row{margin-top:10px;}
+  .my-loc-card{
+    background:var(--ink-2);
+    border:1px solid var(--brass);
+    border-radius:4px;
+    padding:16px;
+    margin-bottom:14px;
+  }
+  .my-loc-card .form-grid{margin-top:12px;}
 
   /* ---------- Day ribbon (dance card) ---------- */
   .ribbon{
@@ -741,6 +774,11 @@
     <button class="add-btn" id="add-btn">Submit suggestion</button>
   </details>
 
+  <div class="review-panel" id="my-location-panel" style="display:none;">
+    <h3>My Location</h3>
+    <div id="my-location-list"></div>
+  </div>
+
   <div class="review-panel" id="review-panel" style="display:none;">
     <h3>Pending Suggestions</h3>
     <div id="review-list"></div>
@@ -759,7 +797,11 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let locations = [];
 let currentUser = null;
+let userRole = null; // 'member' | 'contributor' | 'developer' | null (logged out)
 let isDev = false;
+let isContributor = false;
+let ratingStats = {};   // location_id -> {avg, count}
+let myRatings = {};     // location_id -> my stars (1-5)
 
 function rowToLocation(row){
   return {
@@ -774,7 +816,8 @@ function rowToLocation(row){
     price: row.price,
     swingRatio: row.swing_ratio,
     lineRatio: row.line_ratio,
-    days: row.days || []
+    days: row.days || [],
+    ownerId: row.owner_id
   };
 }
 
@@ -785,6 +828,59 @@ async function loadLocations(){
     return;
   }
   locations = (data || []).map(rowToLocation);
+}
+
+async function loadRatingStats(){
+  const { data, error } = await sb.from('location_rating_stats').select('*');
+  if(error){ console.error('Failed to load rating stats', error); return; }
+  ratingStats = {};
+  (data || []).forEach(r=>{ ratingStats[r.location_id] = { avg: parseFloat(r.avg_stars), count: r.rating_count }; });
+}
+
+async function loadMyRatings(){
+  myRatings = {};
+  if(!currentUser) return;
+  const { data, error } = await sb.from('ratings').select('location_id, stars').eq('user_id', currentUser.id);
+  if(error){ console.error('Failed to load my ratings', error); return; }
+  (data || []).forEach(r=>{ myRatings[r.location_id] = r.stars; });
+}
+
+function starDisplay(avg, count){
+  if(!count) return `<span class="stars-empty">No ratings yet</span>`;
+  const rounded = Math.round(avg * 2) / 2;
+  let html = '';
+  for(let i=1;i<=5;i++){
+    if(rounded >= i) html += '★';
+    else if(rounded >= i - 0.5) html += '⯨';
+    else html += '☆';
+  }
+  return `<span class="stars-avg">${html}</span> <span class="stars-num">${avg.toFixed(1)} (${count})</span>`;
+}
+
+function ratingWidget(locationId){
+  const mine = myRatings[locationId] || 0;
+  if(!currentUser){
+    return `<p class="rate-hint">Sign in to rate this location.</p>`;
+  }
+  let stars = '';
+  for(let i=1;i<=5;i++){
+    stars += `<button type="button" class="rate-star${i<=mine?' filled':''}" data-loc="${locationId}" data-val="${i}">★</button>`;
+  }
+  return `<div class="rate-widget">${stars}</div>`;
+}
+
+async function submitRating(locationId, stars){
+  if(!currentUser) return;
+  const { error } = await sb.from('ratings').upsert(
+    { location_id: locationId, user_id: currentUser.id, stars, updated_at: new Date().toISOString() },
+    { onConflict: 'location_id,user_id' }
+  );
+  if(error){
+    alert("Couldn't save your rating: " + error.message);
+    return;
+  }
+  myRatings[locationId] = stars;
+  await loadRatingStats();
 }
 
 let currentDay = new Date().getDay();
@@ -841,7 +937,9 @@ function renderList(){
     cardsEl.innerHTML = `<p class="empty">No floors on the card for ${DAYS[currentDay]} yet. Add one below.</p>`;
     return;
   }
-  cardsEl.innerHTML = items.map(l=>`
+  cardsEl.innerHTML = items.map(l=>{
+    const rs = ratingStats[l.id] || {avg:0, count:0};
+    return `
     <div class="venue-card">
       <div>
         <p class="venue-name">${l.name}</p>
@@ -849,10 +947,11 @@ function renderList(){
         ${l.lessons ? `${lessonsBlock(l.lessons)}` : ''}
         <p class="venue-meta"><i>&#9679;</i><strong>Open floor:</strong> ${l.openFloor}</p>
         <p class="venue-meta"><i>&#9679;</i><strong>Price:</strong> ${l.price}</p>
+        <div class="rating-row">${starDisplay(rs.avg, rs.count)}</div>
       </div>
       ${ratioBar(l.swingRatio, l.lineRatio)}
     </div>
-  `).join("");
+  `;}).join("");
 }
 
 const zoomLayer = usSvg.append('g').attr('class','zoom-layer');
@@ -1003,6 +1102,7 @@ function getDirectionsUrl(address){
 function showDetail(l, groupPt){
   detailCard.classList.add('show');
   const backBtn = groupPt ? `<button class="back-link" id="back-to-picker" type="button">&larr; Back to ${groupPt.city || 'list'}</button>` : '';
+  const rs = ratingStats[l.id] || {avg:0, count:0};
   detailCard.innerHTML = `
     ${backBtn}
     <h3>${l.name}</h3>
@@ -1012,6 +1112,11 @@ function showDetail(l, groupPt){
     <p class="venue-meta"><i>&#9679;</i><strong>Open floor:</strong> ${l.openFloor}</p>
     <p class="venue-meta"><i>&#9679;</i><strong>Price:</strong> ${l.price}</p>
     ${ratioBar(l.swingRatio, l.lineRatio)}
+    <div class="rating-row">
+      <div class="ratio-label">Rating</div>
+      ${starDisplay(rs.avg, rs.count)}
+      ${ratingWidget(l.id)}
+    </div>
     <a class="directions-link" href="${getDirectionsUrl(l.address)}" target="_blank" rel="noopener">Get Directions</a>
   `;
   if(groupPt){
@@ -1021,6 +1126,14 @@ function showDetail(l, groupPt){
       showPicker(groupPt);
     });
   }
+  detailCard.querySelectorAll('.rate-star').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const locId = btn.getAttribute('data-loc');
+      const val = parseInt(btn.getAttribute('data-val'));
+      await submitRating(locId, val);
+      showDetail(l, groupPt);
+    });
+  });
 }
 
 function render(){
@@ -1141,6 +1254,7 @@ function updateRoleUI(){
   const note = document.getElementById('add-panel-note');
   const btn = document.getElementById('add-btn');
   const reviewPanel = document.getElementById('review-panel');
+  const myLocPanel = document.getElementById('my-location-panel');
   if(isDev){
     summary.textContent = "Add a location to the card";
     note.style.display = 'none';
@@ -1153,6 +1267,79 @@ function updateRoleUI(){
     btn.textContent = "Submit suggestion";
     reviewPanel.style.display = 'none';
   }
+  if(isContributor){
+    myLocPanel.style.display = 'block';
+    buildMyLocationPanel();
+  } else {
+    myLocPanel.style.display = 'none';
+  }
+}
+
+function buildMyLocationPanel(){
+  const list = document.getElementById('my-location-list');
+  const owned = locations.filter(l=> l.ownerId === (currentUser && currentUser.id));
+  if(owned.length===0){
+    list.innerHTML = `<p class="detail-hint">No location is linked to your account yet — ask a developer to assign one to you.</p>`;
+    return;
+  }
+  list.innerHTML = owned.map(l=>`
+    <div class="my-loc-card" data-id="${l.id}">
+      <p class="venue-name">${l.name}</p>
+      <div class="form-grid">
+        <div>
+          <label>Price</label>
+          <input type="text" class="ml-price" value="${l.price || ''}">
+        </div>
+        <div>
+          <label>Open floor dancing</label>
+          <input type="text" class="ml-openfloor" value="${l.openFloor || ''}">
+        </div>
+        <div class="full">
+          <label>Address</label>
+          <input type="text" class="ml-address" value="${l.address || ''}">
+        </div>
+        <div>
+          <label>Lessons (optional)</label>
+          <input type="text" class="ml-lessons" value="${typeof l.lessons==='string' ? l.lessons : ''}">
+        </div>
+        <div>
+          <label>Swing / line ratio</label>
+          <div class="range-row">
+            <input type="number" class="ml-swing" min="0" value="${l.swingRatio}" style="width:56px;">
+            <span style="color:var(--parchment-dim);">:</span>
+            <input type="number" class="ml-line" min="0" value="${l.lineRatio}" style="width:56px;">
+          </div>
+        </div>
+      </div>
+      <button class="add-btn ml-save" type="button" style="margin-top:12px;">Save changes</button>
+      <p class="auth-note ml-note"></p>
+    </div>
+  `).join("");
+
+  list.querySelectorAll('.my-loc-card').forEach(card=>{
+    const id = card.getAttribute('data-id');
+    card.querySelector('.ml-save').addEventListener('click', async ()=>{
+      const note = card.querySelector('.ml-note');
+      note.textContent = '';
+      const update = {
+        price: card.querySelector('.ml-price').value.trim(),
+        open_floor: card.querySelector('.ml-openfloor').value.trim(),
+        address: card.querySelector('.ml-address').value.trim(),
+        lessons: card.querySelector('.ml-lessons').value.trim() || null,
+        swing_ratio: parseInt(card.querySelector('.ml-swing').value) || 0,
+        line_ratio: parseInt(card.querySelector('.ml-line').value) || 0
+      };
+      const { error } = await sb.from('locations').update(update).eq('id', id);
+      if(error){
+        note.textContent = "Couldn't save: " + error.message;
+      } else {
+        note.textContent = "Saved.";
+        await loadLocations();
+        render();
+        if(mapInitialized) drawMarkers();
+      }
+    });
+  });
 }
 
 function updateAuthUI(){
@@ -1162,7 +1349,10 @@ function updateAuthUI(){
   if(currentUser){
     signedOut.style.display = 'none';
     signedIn.style.display = 'flex';
-    status.innerHTML = `${currentUser.email} ${isDev ? '<span class="role-dev">(Developer)</span>' : '(Member)'}`;
+    const roleLabel = isDev ? '<span class="role-dev">(Developer)</span>'
+      : isContributor ? '<span class="role-contributor">(Contributor)</span>'
+      : '(Member)';
+    status.innerHTML = `${currentUser.email} ${roleLabel}`;
   } else {
     signedOut.style.display = 'block';
     signedIn.style.display = 'none';
@@ -1171,10 +1361,12 @@ function updateAuthUI(){
 }
 
 async function loadProfile(){
-  if(!currentUser){ isDev = false; return; }
-  const { data, error } = await sb.from('profiles').select('is_developer').eq('id', currentUser.id).single();
-  if(error){ console.error('Could not load profile', error); isDev = false; return; }
-  isDev = !!(data && data.is_developer);
+  if(!currentUser){ isDev = false; isContributor = false; userRole = null; return; }
+  const { data, error } = await sb.from('profiles').select('role').eq('id', currentUser.id).single();
+  if(error){ console.error('Could not load profile', error); isDev = false; isContributor = false; userRole = null; return; }
+  userRole = (data && data.role) || 'member';
+  isDev = userRole === 'developer';
+  isContributor = userRole === 'contributor';
 }
 
 async function checkSession(){
@@ -1183,6 +1375,7 @@ async function checkSession(){
     currentUser = data.session.user;
     await loadProfile();
   }
+  await loadMyRatings();
   updateAuthUI();
 }
 
@@ -1219,7 +1412,10 @@ document.getElementById('auth-submit').addEventListener('click', async ()=>{
     } else {
       currentUser = data.user;
       await loadProfile();
+      await loadMyRatings();
       updateAuthUI();
+      render();
+      if(mapInitialized) drawMarkers();
       document.getElementById('auth-panel').style.display = 'none';
     }
   } else {
@@ -1231,7 +1427,10 @@ document.getElementById('auth-submit').addEventListener('click', async ()=>{
     } else {
       currentUser = data.user;
       await loadProfile();
+      await loadMyRatings();
       updateAuthUI();
+      render();
+      if(mapInitialized) drawMarkers();
       document.getElementById('auth-panel').style.display = 'none';
     }
   }
@@ -1242,7 +1441,12 @@ document.getElementById('auth-logout').addEventListener('click', async ()=>{
   await sb.auth.signOut();
   currentUser = null;
   isDev = false;
+  isContributor = false;
+  userRole = null;
+  myRatings = {};
   updateAuthUI();
+  render();
+  if(mapInitialized) drawMarkers();
 });
 
 async function loadSuggestions(){
@@ -1293,6 +1497,7 @@ async function loadSuggestions(){
 
 (async function init(){
   await loadLocations();
+  await loadRatingStats();
   await checkSession();
   render();
 })();
