@@ -706,6 +706,7 @@
     <div class="toggle">
       <button id="btn-list" class="active">List</button>
       <button id="btn-map">Map</button>
+      <button id="btn-myloc" style="display:none;">My Location</button>
     </div>
     <div class="legend">
       <span><span class="dot swing"></span>Swing</span>
@@ -731,6 +732,11 @@
     </div>
     <p class="map-note">Scroll, drag, or use the +/– buttons to explore. Tap a dot for details and directions.</p>
     <div class="detail-card" id="detail-card"></div>
+  </div>
+
+  <div id="view-mylocation" style="display:none;">
+    <h2 class="day-heading">My Location</h2>
+    <div id="my-location-list"></div>
   </div>
 
   <details class="add-panel">
@@ -774,11 +780,6 @@
     <button class="add-btn" id="add-btn">Submit suggestion</button>
   </details>
 
-  <div class="review-panel" id="my-location-panel" style="display:none;">
-    <h3>My Location</h3>
-    <div id="my-location-list"></div>
-  </div>
-
   <div class="review-panel" id="review-panel" style="display:none;">
     <h3>Pending Suggestions</h3>
     <div id="review-list"></div>
@@ -804,25 +805,27 @@ let ratingStats = {};   // location_id -> {avg, count}
 let myRatings = {};     // location_id -> my stars (1-5)
 
 function rowToLocation(row){
+  const venue = row.venues || {};
   return {
     id: row.id,
+    venueId: row.venue_id,
     name: row.name,
-    address: row.address,
-    city: row.city,
-    lat: row.lat,
-    lng: row.lng,
+    address: venue.address,
+    city: venue.city,
+    lat: venue.lat,
+    lng: venue.lng,
     lessons: row.lessons,
     openFloor: row.open_floor,
     price: row.price,
     swingRatio: row.swing_ratio,
     lineRatio: row.line_ratio,
     days: row.days || [],
-    ownerId: row.owner_id
+    ownerId: venue.owner_id
   };
 }
 
 async function loadLocations(){
-  const { data, error } = await sb.from('locations').select('*').order('name');
+  const { data, error } = await sb.from('schedules').select('*, venues(*)').order('name');
   if(error){
     console.error('Failed to load locations', error);
     return;
@@ -840,9 +843,9 @@ async function loadRatingStats(){
 async function loadMyRatings(){
   myRatings = {};
   if(!currentUser) return;
-  const { data, error } = await sb.from('ratings').select('location_id, stars').eq('user_id', currentUser.id);
+  const { data, error } = await sb.from('ratings').select('schedule_id, stars').eq('user_id', currentUser.id);
   if(error){ console.error('Failed to load my ratings', error); return; }
-  (data || []).forEach(r=>{ myRatings[r.location_id] = r.stars; });
+  (data || []).forEach(r=>{ myRatings[r.schedule_id] = r.stars; });
 }
 
 function starDisplay(avg, count){
@@ -872,8 +875,8 @@ function ratingWidget(locationId){
 async function submitRating(locationId, stars){
   if(!currentUser) return;
   const { error } = await sb.from('ratings').upsert(
-    { location_id: locationId, user_id: currentUser.id, stars, updated_at: new Date().toISOString() },
-    { onConflict: 'location_id,user_id' }
+    { schedule_id: locationId, user_id: currentUser.id, stars, updated_at: new Date().toISOString() },
+    { onConflict: 'schedule_id,user_id' }
   );
   if(error){
     alert("Couldn't save your rating: " + error.message);
@@ -893,8 +896,10 @@ const cardsEl = document.getElementById('cards');
 const dayHeading = document.getElementById('day-heading');
 const btnList = document.getElementById('btn-list');
 const btnMap = document.getElementById('btn-map');
+const btnMyLoc = document.getElementById('btn-myloc');
 const viewList = document.getElementById('view-list');
 const viewMap = document.getElementById('view-map');
+const viewMyLoc = document.getElementById('view-mylocation');
 const detailCard = document.getElementById('detail-card');
 const usSvg = d3.select('#us-svg');
 const projection = d3.geoAlbersUsa().scale(1280).translate([480,300]);
@@ -947,11 +952,24 @@ function renderList(){
         ${l.lessons ? `${lessonsBlock(l.lessons)}` : ''}
         <p class="venue-meta"><i>&#9679;</i><strong>Open floor:</strong> ${l.openFloor}</p>
         <p class="venue-meta"><i>&#9679;</i><strong>Price:</strong> ${l.price}</p>
-        <div class="rating-row">${starDisplay(rs.avg, rs.count)}</div>
+        <div class="rating-row">
+          ${starDisplay(rs.avg, rs.count)}
+          ${ratingWidget(l.id)}
+        </div>
       </div>
       ${ratioBar(l.swingRatio, l.lineRatio)}
     </div>
   `;}).join("");
+
+  cardsEl.querySelectorAll('.rate-star').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const locId = btn.getAttribute('data-loc');
+      const val = parseInt(btn.getAttribute('data-val'));
+      await submitRating(locId, val);
+      renderList();
+    });
+  });
 }
 
 const zoomLayer = usSvg.append('g').attr('class','zoom-layer');
@@ -1141,19 +1159,22 @@ function render(){
   renderList();
 }
 
-btnList.addEventListener('click', ()=>{
-  currentView='list';
-  btnList.classList.add('active'); btnMap.classList.remove('active');
-  viewList.style.display='block'; viewMap.style.display='none';
-  ribbon.style.display='flex';
-});
-btnMap.addEventListener('click', ()=>{
-  currentView='map';
-  btnMap.classList.add('active'); btnList.classList.remove('active');
-  viewMap.style.display='grid'; viewList.style.display='none';
-  ribbon.style.display='none';
-  initMap();
-});
+function switchView(view){
+  currentView = view;
+  btnList.classList.toggle('active', view==='list');
+  btnMap.classList.toggle('active', view==='map');
+  btnMyLoc.classList.toggle('active', view==='myloc');
+  viewList.style.display = view==='list' ? 'block' : 'none';
+  viewMap.style.display = view==='map' ? 'grid' : 'none';
+  viewMyLoc.style.display = view==='myloc' ? 'block' : 'none';
+  ribbon.style.display = view==='list' ? 'flex' : 'none';
+  if(view==='map') initMap();
+  if(view==='myloc') buildMyLocationPanel();
+}
+
+btnList.addEventListener('click', ()=> switchView('list'));
+btnMap.addEventListener('click', ()=> switchView('map'));
+btnMyLoc.addEventListener('click', ()=> switchView('myloc'));
 
 const fDays = document.getElementById('f-days');
 DAYS.forEach(d=>{
@@ -1170,6 +1191,17 @@ function updateRatioOut(){
 }
 fSwing.addEventListener('input', updateRatioOut);
 fLine.addEventListener('input', updateRatioOut);
+
+async function findOrCreateVenue({ name, address, city, lat, lng }){
+  const { data: existing, error: findErr } = await sb.from('venues').select('*').eq('address', address).maybeSingle();
+  if(findErr) console.error('Venue lookup failed', findErr);
+  if(existing) return existing;
+  const { data: created, error: insErr } = await sb.from('venues')
+    .insert({ name, address, city, lat, lng })
+    .select().single();
+  if(insErr) throw insErr;
+  return created;
+}
 
 document.getElementById('add-btn').addEventListener('click', async ()=>{
   const name = document.getElementById('f-name').value.trim();
@@ -1216,14 +1248,20 @@ document.getElementById('add-btn').addEventListener('click', async ()=>{
 
   addBtn.textContent = "Saving…";
   if(isDev){
-    const { error } = await sb.from('locations').insert(row);
-    if(error){
-      console.error(error);
-      alert("Couldn't save that location: " + error.message);
-    } else {
+    try{
+      const venue = await findOrCreateVenue({ name, address, city, lat, lng });
+      const { error } = await sb.from('schedules').insert({
+        venue_id: venue.id, name, lessons: lessons || null,
+        open_floor: openFloor || "Time TBD", price: price || "Price TBD",
+        swing_ratio: swingRatio, line_ratio: lineRatio, days
+      });
+      if(error) throw error;
       await loadLocations();
       render();
       if(mapInitialized) drawMarkers();
+    }catch(err){
+      console.error(err);
+      alert("Couldn't save that location: " + err.message);
     }
   } else {
     const rowWithUser = { ...row, submitted_by: currentUser ? currentUser.id : null };
@@ -1254,7 +1292,6 @@ function updateRoleUI(){
   const note = document.getElementById('add-panel-note');
   const btn = document.getElementById('add-btn');
   const reviewPanel = document.getElementById('review-panel');
-  const myLocPanel = document.getElementById('my-location-panel');
   if(isDev){
     summary.textContent = "Add a location to the card";
     note.style.display = 'none';
@@ -1267,11 +1304,11 @@ function updateRoleUI(){
     btn.textContent = "Submit suggestion";
     reviewPanel.style.display = 'none';
   }
+  btnMyLoc.style.display = isContributor ? 'inline-block' : 'none';
   if(isContributor){
-    myLocPanel.style.display = 'block';
-    buildMyLocationPanel();
-  } else {
-    myLocPanel.style.display = 'none';
+    if(currentView==='myloc') buildMyLocationPanel();
+  } else if(currentView==='myloc'){
+    switchView('list');
   }
 }
 
@@ -1279,44 +1316,79 @@ function buildMyLocationPanel(){
   const list = document.getElementById('my-location-list');
   const owned = locations.filter(l=> l.ownerId === (currentUser && currentUser.id));
   if(owned.length===0){
-    list.innerHTML = `<p class="detail-hint">No location is linked to your account yet — ask a developer to assign one to you.</p>`;
+    list.innerHTML = `<p class="detail-hint">No venue is linked to your account yet — ask a developer to assign one to you.</p>`;
     return;
   }
-  list.innerHTML = owned.map(l=>`
-    <div class="my-loc-card" data-id="${l.id}">
-      <p class="venue-name">${l.name}</p>
+  // Group schedules by venue (usually just one venue, but handle multiple gracefully)
+  const byVenue = new Map();
+  owned.forEach(l=>{
+    if(!byVenue.has(l.venueId)) byVenue.set(l.venueId, { venueId: l.venueId, address: l.address, city: l.city, schedules: [] });
+    byVenue.get(l.venueId).schedules.push(l);
+  });
+
+  list.innerHTML = Array.from(byVenue.values()).map(v=>`
+    <div class="my-loc-card" data-venue-id="${v.venueId}">
+      <p class="venue-name">${v.schedules[0].name.split(' — ')[0]}</p>
       <div class="form-grid">
-        <div>
-          <label>Price</label>
-          <input type="text" class="ml-price" value="${l.price || ''}">
-        </div>
-        <div>
-          <label>Open floor dancing</label>
-          <input type="text" class="ml-openfloor" value="${l.openFloor || ''}">
-        </div>
         <div class="full">
           <label>Address</label>
-          <input type="text" class="ml-address" value="${l.address || ''}">
-        </div>
-        <div>
-          <label>Lessons (optional)</label>
-          <input type="text" class="ml-lessons" value="${typeof l.lessons==='string' ? l.lessons : ''}">
-        </div>
-        <div>
-          <label>Swing / line ratio</label>
-          <div class="range-row">
-            <input type="number" class="ml-swing" min="0" value="${l.swingRatio}" style="width:56px;">
-            <span style="color:var(--parchment-dim);">:</span>
-            <input type="number" class="ml-line" min="0" value="${l.lineRatio}" style="width:56px;">
-          </div>
+          <input type="text" class="ml-venue-address" value="${v.address || ''}">
         </div>
       </div>
-      <button class="add-btn ml-save" type="button" style="margin-top:12px;">Save changes</button>
-      <p class="auth-note ml-note"></p>
+      <button class="add-btn ml-venue-save" type="button" style="margin-top:10px;">Save address</button>
+      <p class="auth-note ml-venue-note"></p>
+
+      ${v.schedules.map(l=>`
+        <div class="ml-schedule" data-id="${l.id}" style="margin-top:18px; padding-top:14px; border-top:1px solid var(--line-hair);">
+          <p class="venue-meta"><strong>Night(s):</strong> ${l.days.join(', ')}</p>
+          <div class="form-grid">
+            <div>
+              <label>Price</label>
+              <input type="text" class="ml-price" value="${l.price || ''}">
+            </div>
+            <div>
+              <label>Open floor dancing</label>
+              <input type="text" class="ml-openfloor" value="${l.openFloor || ''}">
+            </div>
+            <div>
+              <label>Lessons (optional)</label>
+              <input type="text" class="ml-lessons" value="${typeof l.lessons==='string' ? l.lessons : ''}">
+            </div>
+            <div>
+              <label>Swing / line ratio</label>
+              <div class="range-row">
+                <input type="number" class="ml-swing" min="0" value="${l.swingRatio}" style="width:56px;">
+                <span style="color:var(--parchment-dim);">:</span>
+                <input type="number" class="ml-line" min="0" value="${l.lineRatio}" style="width:56px;">
+              </div>
+            </div>
+          </div>
+          <button class="add-btn ml-save" type="button" style="margin-top:12px;">Save changes</button>
+          <p class="auth-note ml-note"></p>
+        </div>
+      `).join('')}
     </div>
   `).join("");
 
   list.querySelectorAll('.my-loc-card').forEach(card=>{
+    const venueId = card.getAttribute('data-venue-id');
+    card.querySelector('.ml-venue-save').addEventListener('click', async ()=>{
+      const note = card.querySelector('.ml-venue-note');
+      note.textContent = '';
+      const address = card.querySelector('.ml-venue-address').value.trim();
+      const { error } = await sb.from('venues').update({ address }).eq('id', venueId);
+      if(error){
+        note.textContent = "Couldn't save: " + error.message;
+      } else {
+        note.textContent = "Saved.";
+        await loadLocations();
+        render();
+        if(mapInitialized) drawMarkers();
+      }
+    });
+  });
+
+  list.querySelectorAll('.ml-schedule').forEach(card=>{
     const id = card.getAttribute('data-id');
     card.querySelector('.ml-save').addEventListener('click', async ()=>{
       const note = card.querySelector('.ml-note');
@@ -1324,12 +1396,11 @@ function buildMyLocationPanel(){
       const update = {
         price: card.querySelector('.ml-price').value.trim(),
         open_floor: card.querySelector('.ml-openfloor').value.trim(),
-        address: card.querySelector('.ml-address').value.trim(),
         lessons: card.querySelector('.ml-lessons').value.trim() || null,
         swing_ratio: parseInt(card.querySelector('.ml-swing').value) || 0,
         line_ratio: parseInt(card.querySelector('.ml-line').value) || 0
       };
-      const { error } = await sb.from('locations').update(update).eq('id', id);
+      const { error } = await sb.from('schedules').update(update).eq('id', id);
       if(error){
         note.textContent = "Couldn't save: " + error.message;
       } else {
@@ -1481,9 +1552,22 @@ async function loadSuggestions(){
       const suggestion = data.find(s=>s.id===id);
       btn.closest('.review-card').style.opacity = '0.5';
       if(action==='approve' && suggestion){
-        const { id:_drop, submitted_by, created_at, ...rest } = suggestion;
-        const { error: insErr } = await sb.from('locations').insert(rest);
-        if(insErr){ alert('Could not approve: ' + insErr.message); return; }
+        try{
+          const venue = await findOrCreateVenue({
+            name: suggestion.name, address: suggestion.address,
+            city: suggestion.city, lat: suggestion.lat, lng: suggestion.lng
+          });
+          const { error: insErr } = await sb.from('schedules').insert({
+            venue_id: venue.id, name: suggestion.name, lessons: suggestion.lessons,
+            open_floor: suggestion.open_floor, price: suggestion.price,
+            swing_ratio: suggestion.swing_ratio, line_ratio: suggestion.line_ratio,
+            days: suggestion.days
+          });
+          if(insErr) throw insErr;
+        }catch(err){
+          alert('Could not approve: ' + err.message);
+          return;
+        }
       }
       const { error: delErr } = await sb.from('suggestions').delete().eq('id', id);
       if(delErr) console.error(delErr);
