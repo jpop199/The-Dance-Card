@@ -31,6 +31,7 @@
     color:var(--parchment);
     font-family:'Lora',serif;
     -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
   }
   .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 60px;}
 
@@ -103,10 +104,12 @@
     background:transparent;
     color:var(--parchment-dim);
     border:none;
+    box-shadow: inset 1px 0 0 rgba(27,35,56,0.6), inset 2px 0 0 rgba(242,233,216,0.25);
     padding:9px 20px;
     cursor:pointer;
     transition:background .15s ease, color .15s ease;
   }
+  .toggle button:first-child{box-shadow:none;}
   .toggle button.active{
     background:var(--brass);
     color:var(--ink);
@@ -142,7 +145,7 @@
     padding:2px;
   }
   .auth-link:hover{color:var(--parchment);}
-  .auth-signedin{display:flex; align-items:center; gap:12px;}
+  .auth-signedin{display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end;}
   .auth-status{
     font-family:'Oswald',sans-serif;
     font-size:11px;
@@ -668,6 +671,19 @@
     .venue-card{grid-template-columns:1fr;}
     .ratio-wrap{text-align:left;}
     .ratio-bar{width:100%;}
+    .auth-panel{max-width:100%; margin-left:0;}
+    .toggle button{padding:9px 14px; font-size:11.5px;}
+    .zoom-btn{width:36px; height:36px; font-size:18px;}
+    .rate-star{font-size:26px; padding:4px 3px;}
+    .my-loc-card .form-grid{grid-template-columns:1fr;}
+    header.banner{padding:18px 18px 16px;}
+    .wrap{padding:20px 14px 60px;}
+  }
+
+  @media (max-width:400px){
+    .toggle{width:100%;}
+    .toggle button{flex:1; padding:9px 8px;}
+    .legend{width:100%; justify-content:flex-start;}
   }
 </style>
 </head>
