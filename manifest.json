@@ -2,7 +2,7 @@
   "name": "The Dance Card",
   "short_name": "Dance Card",
   "description": "Weekly swing & line dance floor guide",
-  "start_url": "./dance-card.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

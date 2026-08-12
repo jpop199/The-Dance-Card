@@ -1,7 +1,7 @@
 const CACHE_NAME = 'dance-card-v1';
 
 const SHELL_ASSETS = [
-  './dance-card.html',
+  './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',

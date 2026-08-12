@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dance Card — Weekly Swing &amp; Line Finder</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B2338">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dance Card">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Bebas+Neue&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --ink:#1B2338;
+    --ink-2:#242E4A;
+    --parchment:#F2E9D8;
+    --parchment-dim:#E4D8BF;
+    --brass:#C9A227;
+    --brass-bright:#E4BE4A;
+    --oxblood:#7A2E2E;
+    --oxblood-bright:#9C3D3D;
+    --denim:#3F6C6B;
+    --denim-bright:#5A8D8B;
+    --line-hair:rgba(242,233,216,0.18);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--parchment);
+    font-family:'Lora',serif;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 60px;}
+
+  /* ---------- Header / ticket banner ---------- */
+  header.banner{
+    position:relative;
+    border:1px solid var(--brass);
+    padding:22px 26px 20px;
+    margin-bottom:22px;
+    background:
+      repeating-linear-gradient(135deg, rgba(201,162,39,0.04) 0 2px, transparent 2px 14px),
+      var(--ink-2);
+  }
+  header.banner::before, header.banner::after{
+    content:"";
+    position:absolute; top:50%; width:20px; height:20px;
+    background:var(--ink);
+    border:1px solid var(--brass);
+    border-radius:50%;
+    transform:translateY(-50%);
+  }
+  header.banner::before{ left:-11px; }
+  header.banner::after{ right:-11px; }
+  .eyebrow{
+    font-family:'Oswald',sans-serif;
+    letter-spacing:.32em;
+    font-size:11px;
+    color:var(--brass-bright);
+    text-transform:uppercase;
+    margin:0 0 6px;
+  }
+  h1{
+    font-family:'Bebas Neue',sans-serif;
+    font-weight:400;
+    font-size:clamp(38px,6vw,58px);
+    letter-spacing:.03em;
+    margin:0;
+    line-height:.95;
+    color:var(--parchment);
+  }
+  h1 span{color:var(--brass-bright);}
+  .subtitle{
+    font-style:italic;
+    color:var(--parchment-dim);
+    font-size:14.5px;
+    margin:10px 0 0;
+    max-width:56ch;
+  }
+
+  /* ---------- View toggle ---------- */
+  .toggle-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    flex-wrap:wrap;
+    margin:22px 0 16px;
+  }
+  .toggle{
+    display:inline-flex;
+    border:1px solid var(--brass);
+    border-radius:999px;
+    overflow:hidden;
+  }
+  .toggle button{
+    font-family:'Oswald',sans-serif;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    font-size:12.5px;
+    background:transparent;
+    color:var(--parchment-dim);
+    border:none;
+    box-shadow: inset 1px 0 0 rgba(27,35,56,0.6), inset 2px 0 0 rgba(242,233,216,0.25);
+    padding:9px 20px;
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+  }
+  .toggle button:first-child{box-shadow:none;}
+  .toggle button.active{
+    background:var(--brass);
+    color:var(--ink);
+    font-weight:600;
+  }
+  .legend{
+    display:flex;
+    gap:16px;
+    font-family:'Oswald',sans-serif;
+    font-size:11.5px;
+    letter-spacing:.04em;
+    color:var(--parchment-dim);
+  }
+  .legend .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+  .legend .dot.swing{background:var(--brass-bright);}
+  .legend .dot.line{background:var(--denim-bright);}
+
+  /* ---------- Auth ---------- */
+  .auth-bar{
+    display:flex;
+    justify-content:flex-end;
+    margin:10px 0 0;
+  }
+  .auth-link{
+    background:none;
+    border:none;
+    font-family:'Oswald',sans-serif;
+    font-size:11px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--brass-bright);
+    cursor:pointer;
+    padding:2px;
+  }
+  .auth-link:hover{color:var(--parchment);}
+  .auth-signedin{display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end;}
+  .auth-status{
+    font-family:'Oswald',sans-serif;
+    font-size:11px;
+    letter-spacing:.04em;
+    color:var(--parchment-dim);
+  }
+  .auth-status .role-dev{color:var(--brass-bright); font-weight:600;}
+  .auth-status .role-contributor{color:var(--denim-bright); font-weight:600;}
+  .auth-panel{
+    margin-top:10px;
+    background:var(--ink-2);
+    border:1px solid var(--brass);
+    border-radius:4px;
+    padding:16px;
+    max-width:320px;
+    margin-left:auto;
+  }
+  .auth-tabs{display:flex; gap:8px; margin-bottom:10px;}
+  .auth-tab{
+    flex:1;
+    background:var(--ink);
+    border:1px solid var(--line-hair);
+    color:var(--parchment-dim);
+    font-family:'Oswald',sans-serif;
+    font-size:11px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    padding:7px 0;
+    cursor:pointer;
+    border-radius:3px;
+  }
+  .auth-tab.active{background:var(--brass); color:var(--ink); border-color:var(--brass); font-weight:600;}
+  .auth-panel input{
+    width:100%;
+    background:var(--ink);
+    border:1px solid var(--line-hair);
+    color:var(--parchment);
+    font-family:'Lora',serif;
+    font-size:13.5px;
+    padding:8px 10px;
+    border-radius:3px;
+    margin-bottom:8px;
+  }
+  .auth-panel .add-btn{width:100%; margin-top:2px;}
+  .auth-note{
+    font-size:12px;
+    color:var(--oxblood-bright);
+    min-height:16px;
+    margin:8px 0 0;
+  }
+  .auth-hint{
+    font-style:italic;
+    font-size:11px;
+    color:var(--parchment-dim);
+    margin:8px 0 0;
+    line-height:1.5;
+  }
+  .suggestion-note{
+    font-style:italic;
+    font-size:12.5px;
+    color:var(--parchment-dim);
+    margin:0 0 12px;
+  }
+  .review-panel{
+    margin-top:26px;
+    border-top:1px solid var(--line-hair);
+    padding-top:16px;
+  }
+  .review-panel h3{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:22px;
+    letter-spacing:.03em;
+    color:var(--brass-bright);
+    margin:0 0 10px;
+  }
+  .review-card{
+    background:var(--ink-2);
+    border:1px solid var(--line-hair);
+    border-radius:4px;
+    padding:14px 16px;
+    margin-bottom:10px;
+  }
+  .review-actions{display:flex; gap:8px; margin-top:10px;}
+  .review-btn{
+    font-family:'Oswald',sans-serif;
+    font-size:11px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    border:none;
+    padding:7px 14px;
+    border-radius:3px;
+    cursor:pointer;
+    font-weight:600;
+  }
+  .review-btn.approve{background:var(--brass); color:var(--ink);}
+  .review-btn.approve:hover{background:var(--brass-bright);}
+  .review-btn.reject{background:var(--oxblood); color:var(--parchment);}
+  .review-btn.reject:hover{background:var(--oxblood-bright);}
+
+  /* ---------- Ratings ---------- */
+  .stars-avg{color:var(--brass-bright); font-size:15px; letter-spacing:1px;}
+  .stars-num{font-family:'Oswald',sans-serif; font-size:12px; color:var(--parchment-dim); margin-left:4px;}
+  .stars-empty{font-style:italic; font-size:12.5px; color:var(--parchment-dim);}
+  .rate-widget{margin-top:8px;}
+  .rate-star{
+    background:none;
+    border:none;
+    font-size:22px;
+    color:var(--line-hair);
+    cursor:pointer;
+    padding:0 2px;
+    line-height:1;
+  }
+  .rate-star.filled{color:var(--brass-bright);}
+  .rate-star:hover{color:var(--brass);}
+  .rate-hint{
+    font-style:italic;
+    font-size:12px;
+    color:var(--parchment-dim);
+    margin-top:8px;
+  }
+  .rating-row{margin-top:10px;}
+  .my-loc-card{
+    background:var(--ink-2);
+    border:1px solid var(--brass);
+    border-radius:4px;
+    padding:16px;
+    margin-bottom:14px;
+  }
+  .my-loc-card .form-grid{margin-top:12px;}
+
+  /* ---------- Day ribbon (dance card) ---------- */
+  .ribbon{
+    display:flex;
+    gap:6px;
+    overflow-x:auto;
+    padding:4px 4px 14px;
+    margin-bottom:6px;
+    scrollbar-width:thin;
+  }
+  .stub{
+    position:relative;
+    flex:0 0 auto;
+    min-width:78px;
+    text-align:center;
+    padding:10px 8px 8px;
+    background:var(--parchment);
+    color:var(--ink);
+    border-radius:3px;
+    cursor:pointer;
+    font-family:'Oswald',sans-serif;
+    border:1px dashed transparent;
+  }
+  .stub .d{
+    display:block;
+    font-family:'Bebas Neue',sans-serif;
+    font-size:20px;
+    letter-spacing:.04em;
+  }
+  .stub .c{
+    display:block;
+    font-size:10.5px;
+    letter-spacing:.05em;
+    color:var(--oxblood);
+    margin-top:2px;
+  }
+  .stub::after{
+    content:"";
+    position:absolute;
+    right:-4px; top:50%;
+    width:8px; height:8px;
+    background:var(--ink);
+    border-radius:50%;
+    transform:translateY(-50%);
+  }
+  .stub:last-child::after{display:none;}
+  .stub.active{
+    background:var(--brass-bright);
+    border-color:var(--ink);
+  }
+  .stub:hover:not(.active){background:var(--parchment-dim);}
+
+  /* ---------- List view ---------- */
+  .day-heading{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:26px;
+    letter-spacing:.03em;
+    color:var(--brass-bright);
+    border-bottom:1px solid var(--line-hair);
+    padding-bottom:8px;
+    margin:18px 0 14px;
+  }
+  .cards{display:grid; gap:14px;}
+  .venue-card{
+    background:var(--ink-2);
+    border:1px solid var(--line-hair);
+    border-radius:4px;
+    padding:16px 18px;
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:10px 16px;
+  }
+  .venue-name{
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    font-size:17px;
+    letter-spacing:.01em;
+    color:var(--parchment);
+    margin:0 0 4px;
+  }
+  .venue-meta{
+    font-size:13.5px;
+    color:var(--parchment-dim);
+    margin:0;
+    line-height:1.6;
+  }
+  .venue-meta i{font-style:normal; color:var(--brass-bright); margin-right:6px;}
+  .venue-meta strong{
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    font-size:11px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    color:var(--brass-bright);
+    margin-right:4px;
+  }
+  .lessons-block{margin:0 0 6px;}
+  .lesson-list{
+    list-style:none;
+    margin:4px 0 0;
+    padding:0 0 0 4px;
+    border-left:1px solid var(--line-hair);
+  }
+  .lesson-list li{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    padding:2px 0 2px 8px;
+    font-size:13px;
+  }
+  .lesson-label{color:var(--parchment-dim);}
+  .lesson-time{color:var(--parchment); font-family:'Oswald',sans-serif; font-size:12px; white-space:nowrap;}
+  .ratio-wrap{
+    align-self:center;
+    min-width:120px;
+    text-align:right;
+  }
+  .ratio-label{
+    font-family:'Oswald',sans-serif;
+    font-size:10.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--parchment-dim);
+    margin-bottom:5px;
+  }
+  .ratio-bar{
+    position:relative;
+    height:9px;
+    border-radius:2px;
+    overflow:hidden;
+    background:var(--denim-bright);
+    width:120px;
+  }
+  .ratio-bar .swing-fill{
+    position:absolute; left:0; top:0; bottom:0;
+    background:var(--brass-bright);
+  }
+  .ratio-bar .seam{
+    position:absolute; top:0; bottom:0; width:1px;
+    background:var(--ink);
+    left:var(--seam-pos,50%);
+  }
+  .ratio-nums{
+    font-family:'Oswald',sans-serif;
+    font-size:10.5px;
+    color:var(--parchment-dim);
+    margin-top:4px;
+  }
+  .empty{
+    font-style:italic;
+    color:var(--parchment-dim);
+    padding:20px 4px;
+  }
+
+  /* ---------- Map view ---------- */
+  .map-panel{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:16px;
+  }
+  .map-frame{
+    position:relative;
+    border:1px solid var(--brass);
+    border-radius:4px;
+    overflow:hidden;
+    background:var(--ink-2);
+  }
+  .map-frame svg{width:100%; height:auto; display:block;}
+  .state-outline{
+    fill:none;
+    stroke:var(--brass);
+    stroke-opacity:0.35;
+    stroke-width:0.7;
+  }
+  .us-dot{cursor:pointer;}
+  .us-dot circle.halo{opacity:0; transition:opacity .15s ease;}
+  .us-dot:hover circle.halo{opacity:.35;}
+  .us-dot.selected circle.halo{opacity:.55;}
+  .city-label{
+    font-family:'Oswald',sans-serif;
+    font-size:16px;
+    font-weight:500;
+    letter-spacing:.01em;
+    fill:var(--parchment);
+    paint-order:stroke;
+    stroke:var(--ink-2);
+    stroke-width:4px;
+    pointer-events:none;
+  }
+  .count-badge{
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    font-size:12px;
+    fill:var(--ink);
+    text-anchor:middle;
+    pointer-events:none;
+  }
+  .picker-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
+  }
+  .picker-chip{
+    font-family:'Oswald',sans-serif;
+    font-size:12px;
+    letter-spacing:.02em;
+    background:var(--ink);
+    color:var(--parchment);
+    border:1px solid var(--brass);
+    border-radius:4px;
+    padding:8px 12px;
+    cursor:pointer;
+    text-align:left;
+  }
+  .picker-chip:hover{background:var(--brass); color:var(--ink);}
+  .back-link{
+    display:inline-block;
+    margin-bottom:10px;
+    font-family:'Oswald',sans-serif;
+    font-size:11px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    background:none;
+    border:none;
+    color:var(--brass-bright);
+    cursor:pointer;
+    padding:0;
+  }
+  .back-link:hover{color:var(--parchment);}
+  .zoom-controls{
+    position:absolute;
+    top:10px; right:10px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    z-index:2;
+  }
+  .zoom-btn{
+    width:28px; height:28px;
+    border-radius:3px;
+    border:1px solid var(--brass);
+    background:var(--ink-2);
+    color:var(--brass-bright);
+    font-family:'Oswald',sans-serif;
+    font-size:15px;
+    line-height:1;
+    cursor:pointer;
+  }
+  .zoom-btn:hover{background:var(--brass); color:var(--ink);}
+  .map-note{
+    font-family:'Oswald',sans-serif;
+    font-size:10.5px;
+    letter-spacing:.03em;
+    color:var(--parchment-dim);
+    text-align:center;
+    margin-top:-6px;
+  }
+  .directions-link{
+    display:inline-block;
+    margin-top:14px;
+    font-family:'Oswald',sans-serif;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    font-size:12px;
+    font-weight:600;
+    background:var(--brass);
+    color:var(--ink);
+    padding:9px 18px;
+    border-radius:3px;
+    text-decoration:none;
+  }
+  .directions-link:hover{background:var(--brass-bright);}
+  .detail-hint{
+    font-style:italic;
+    color:var(--parchment-dim);
+    text-align:center;
+    padding:10px 4px;
+  }
+
+  .detail-card{
+    background:var(--ink-2);
+    border:1px solid var(--brass);
+    border-radius:4px;
+    padding:18px 20px;
+    display:none;
+  }
+  .detail-card.show{display:block;}
+  .detail-card h3{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:24px;
+    letter-spacing:.03em;
+    margin:0 0 4px;
+    color:var(--parchment);
+  }
+  .detail-days{
+    font-family:'Oswald',sans-serif;
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--brass-bright);
+    margin-bottom:12px;
+  }
+
+  /* ---------- Add location form ---------- */
+  details.add-panel{
+    margin-top:26px;
+    border-top:1px solid var(--line-hair);
+    padding-top:16px;
+  }
+  details.add-panel summary{
+    cursor:pointer;
+    font-family:'Oswald',sans-serif;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    font-size:12.5px;
+    color:var(--brass-bright);
+    list-style:none;
+  }
+  details.add-panel summary::-webkit-details-marker{display:none;}
+  details.add-panel summary::before{content:"+ "; }
+  details.add-panel[open] summary::before{content:"– "; }
+  .form-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin-top:14px;
+  }
+  .form-grid .full{grid-column:1/-1;}
+  .form-grid label{
+    display:block;
+    font-family:'Oswald',sans-serif;
+    font-size:10.5px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--parchment-dim);
+    margin-bottom:5px;
+  }
+  .form-grid input, .form-grid select{
+    width:100%;
+    background:var(--ink);
+    border:1px solid var(--line-hair);
+    color:var(--parchment);
+    font-family:'Lora',serif;
+    font-size:13.5px;
+    padding:8px 10px;
+    border-radius:3px;
+  }
+  .form-grid input:focus, .form-grid select:focus{
+    outline:1px solid var(--brass);
+    border-color:var(--brass);
+  }
+  .days-check{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .days-check label{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    background:var(--ink);
+    border:1px solid var(--line-hair);
+    border-radius:3px;
+    padding:6px 9px;
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    cursor:pointer;
+  }
+  .days-check input{width:auto; margin:0;}
+  .add-btn{
+    margin-top:14px;
+    font-family:'Oswald',sans-serif;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    font-size:12px;
+    background:var(--brass);
+    color:var(--ink);
+    border:none;
+    padding:10px 20px;
+    border-radius:3px;
+    cursor:pointer;
+    font-weight:600;
+  }
+  .add-btn:hover{background:var(--brass-bright);}
+  .range-row{display:flex; align-items:center; gap:10px;}
+  .range-row input[type=range]{flex:1;}
+  .range-out{font-family:'Oswald',sans-serif; font-size:12px; min-width:110px; text-align:right; color:var(--parchment-dim);}
+
+  @media (max-width:640px){
+    .form-grid{grid-template-columns:1fr;}
+    .venue-card{grid-template-columns:1fr;}
+    .ratio-wrap{text-align:left;}
+    .ratio-bar{width:100%;}
+    .auth-panel{max-width:100%; margin-left:0;}
+    .toggle button{padding:9px 14px; font-size:11.5px;}
+    .zoom-btn{width:36px; height:36px; font-size:18px;}
+    .rate-star{font-size:26px; padding:4px 3px;}
+    .my-loc-card .form-grid{grid-template-columns:1fr;}
+    header.banner{padding:18px 18px 16px;}
+    .wrap{padding:20px 14px 60px;}
+  }
+
+  @media (max-width:400px){
+    .toggle{width:100%;}
+    .toggle button{flex:1; padding:9px 8px;}
+    .legend{width:100%; justify-content:flex-start;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="banner">
+    <p class="eyebrow">Weekly floor guide</p>
+    <h1>THE DANCE <span>CARD</span></h1>
+    <p class="subtitle">Every swing and line-dance floor in town, sorted by night. Punch a day on the card below, or switch to the map to see who's dancing where.</p>
+  </header>
+
+  <div class="auth-bar" id="auth-bar">
+    <div class="auth-signedout" id="auth-signedout">
+      <button class="auth-link" id="auth-open-login">Developer sign in</button>
+    </div>
+    <div class="auth-signedin" id="auth-signedin" style="display:none;">
+      <span class="auth-status" id="auth-status"></span>
+      <button class="auth-link" id="auth-logout">Log out</button>
+    </div>
+  </div>
+
+  <div class="auth-panel" id="auth-panel" style="display:none;">
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-signin" type="button">Sign in</button>
+      <button class="auth-tab" id="tab-signup" type="button">Create account</button>
+    </div>
+    <input type="email" id="auth-email" placeholder="Email">
+    <input type="password" id="auth-password" placeholder="Password">
+    <button class="add-btn" id="auth-submit" type="button">Sign in</button>
+    <p class="auth-note" id="auth-note"></p>
+    <p class="auth-hint">Heads up — this is a lightweight client-side gate for a small hobby project, not bank-grade security. Don't reuse a sensitive password here.</p>
+  </div>
+
+  <div class="toggle-row">
+    <div class="toggle">
+      <button id="btn-list" class="active">List</button>
+      <button id="btn-map">Map</button>
+      <button id="btn-myloc" style="display:none;">My Location</button>
+    </div>
+    <div class="legend">
+      <span><span class="dot swing"></span>Swing</span>
+      <span><span class="dot line"></span>Line</span>
+    </div>
+  </div>
+
+  <div class="ribbon" id="ribbon"></div>
+
+  <div id="view-list">
+    <h2 class="day-heading" id="day-heading"></h2>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <div id="view-map" class="map-panel" style="display:none;">
+    <div class="map-frame">
+      <svg id="us-svg" viewBox="0 0 960 600" role="img" aria-label="Map of the United States with dance location markers"></svg>
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="zoom-in" type="button" aria-label="Zoom in">+</button>
+        <button class="zoom-btn" id="zoom-out" type="button" aria-label="Zoom out">–</button>
+        <button class="zoom-btn" id="zoom-reset" type="button" aria-label="Reset view">⤢</button>
+      </div>
+    </div>
+    <p class="map-note">Scroll, drag, or use the +/– buttons to explore. Tap a dot for details and directions.</p>
+    <div class="detail-card" id="detail-card"></div>
+  </div>
+
+  <div id="view-mylocation" style="display:none;">
+    <h2 class="day-heading">My Location</h2>
+    <div id="my-location-list"></div>
+  </div>
+
+  <details class="add-panel">
+    <summary id="add-panel-summary">Suggest a location for the card</summary>
+    <p class="suggestion-note" id="add-panel-note">Anyone can suggest a floor — a developer reviews it before it goes live on the card.</p>
+    <div class="form-grid">
+      <div class="full">
+        <label>Venue name</label>
+        <input type="text" id="f-name" placeholder="e.g. The Silver Spur Hall">
+      </div>
+      <div>
+        <label>Price</label>
+        <input type="text" id="f-price" placeholder="e.g. Est. $6">
+      </div>
+      <div class="full">
+        <label>Address</label>
+        <input type="text" id="f-address" placeholder="e.g. 210 Main St">
+      </div>
+      <div>
+        <label>Lessons (optional)</label>
+        <input type="text" id="f-lessons" placeholder="e.g. 7:30 – 8:00 PM">
+      </div>
+      <div>
+        <label>Open floor dancing</label>
+        <input type="text" id="f-openfloor" placeholder="e.g. 8:00 – 10:00 PM">
+      </div>
+      <div>
+        <label>Swing / line ratio</label>
+        <div class="range-row">
+          <input type="number" id="f-swing" min="0" value="2" style="width:56px;">
+          <span style="color:var(--parchment-dim);">:</span>
+          <input type="number" id="f-line" min="0" value="1" style="width:56px;">
+          <span class="range-out" id="f-ratio-out">2:1 swing to line</span>
+        </div>
+      </div>
+      <div class="full">
+        <label>Night(s) it runs</label>
+        <div class="days-check" id="f-days"></div>
+      </div>
+    </div>
+    <button class="add-btn" id="add-btn">Submit suggestion</button>
+  </details>
+
+  <div class="review-panel" id="review-panel" style="display:none;">
+    <h3>Pending Suggestions</h3>
+    <div id="review-list"></div>
+  </div>
+
+</div>
+
+
+<script>
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const DAYS_SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+const SUPABASE_URL = "https://yvgsimzcypdbrtenotow.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_aiKsGkglnEKbUcy3ppWSFA_ptVUAThc";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let locations = [];
+let currentUser = null;
+let userRole = null; // 'member' | 'contributor' | 'developer' | null (logged out)
+let isDev = false;
+let isContributor = false;
+let ratingStats = {};   // location_id -> {avg, count}
+let myRatings = {};     // location_id -> my stars (1-5)
+
+function rowToLocation(row){
+  const venue = row.venues || {};
+  return {
+    id: row.id,
+    venueId: row.venue_id,
+    name: row.name,
+    address: venue.address,
+    city: venue.city,
+    lat: venue.lat,
+    lng: venue.lng,
+    lessons: row.lessons,
+    openFloor: row.open_floor,
+    price: row.price,
+    swingRatio: row.swing_ratio,
+    lineRatio: row.line_ratio,
+    days: row.days || [],
+    ownerId: venue.owner_id
+  };
+}
+
+async function loadLocations(){
+  const { data, error } = await sb.from('schedules').select('*, venues(*)').order('name');
+  if(error){
+    console.error('Failed to load locations', error);
+    return;
+  }
+  locations = (data || []).map(rowToLocation);
+}
+
+async function loadRatingStats(){
+  const { data, error } = await sb.from('location_rating_stats').select('*');
+  if(error){ console.error('Failed to load rating stats', error); return; }
+  ratingStats = {};
+  (data || []).forEach(r=>{ ratingStats[r.location_id] = { avg: parseFloat(r.avg_stars), count: r.rating_count }; });
+}
+
+async function loadMyRatings(){
+  myRatings = {};
+  if(!currentUser) return;
+  const { data, error } = await sb.from('ratings').select('schedule_id, stars').eq('user_id', currentUser.id);
+  if(error){ console.error('Failed to load my ratings', error); return; }
+  (data || []).forEach(r=>{ myRatings[r.schedule_id] = r.stars; });
+}
+
+function starDisplay(avg, count){
+  if(!count) return `<span class="stars-empty">No ratings yet</span>`;
+  const rounded = Math.round(avg * 2) / 2;
+  let html = '';
+  for(let i=1;i<=5;i++){
+    if(rounded >= i) html += '★';
+    else if(rounded >= i - 0.5) html += '⯨';
+    else html += '☆';
+  }
+  return `<span class="stars-avg">${html}</span> <span class="stars-num">${avg.toFixed(1)} (${count})</span>`;
+}
+
+function ratingWidget(locationId){
+  const mine = myRatings[locationId] || 0;
+  if(!currentUser){
+    return `<p class="rate-hint">Sign in to rate this location.</p>`;
+  }
+  let stars = '';
+  for(let i=1;i<=5;i++){
+    stars += `<button type="button" class="rate-star${i<=mine?' filled':''}" data-loc="${locationId}" data-val="${i}">★</button>`;
+  }
+  return `<div class="rate-widget">${stars}</div>`;
+}
+
+async function submitRating(locationId, stars){
+  if(!currentUser) return;
+  const { error } = await sb.from('ratings').upsert(
+    { schedule_id: locationId, user_id: currentUser.id, stars, updated_at: new Date().toISOString() },
+    { onConflict: 'schedule_id,user_id' }
+  );
+  if(error){
+    alert("Couldn't save your rating: " + error.message);
+    return;
+  }
+  myRatings[locationId] = stars;
+  await loadRatingStats();
+}
+
+let currentDay = new Date().getDay();
+currentDay = currentDay === 0 ? 6 : currentDay - 1;
+let currentView = "list";
+let selectedIdx = null;
+
+const ribbon = document.getElementById('ribbon');
+const cardsEl = document.getElementById('cards');
+const dayHeading = document.getElementById('day-heading');
+const btnList = document.getElementById('btn-list');
+const btnMap = document.getElementById('btn-map');
+const btnMyLoc = document.getElementById('btn-myloc');
+const viewList = document.getElementById('view-list');
+const viewMap = document.getElementById('view-map');
+const viewMyLoc = document.getElementById('view-mylocation');
+const detailCard = document.getElementById('detail-card');
+const usSvg = d3.select('#us-svg');
+const projection = d3.geoAlbersUsa().scale(1280).translate([480,300]);
+let mapInitialized = false;
+
+function buildRibbon(){
+  ribbon.innerHTML = "";
+  DAYS.forEach((d,i)=>{
+    const count = locations.filter(l=>l.days.includes(d)).length;
+    const stub = document.createElement('div');
+    stub.className = 'stub' + (i===currentDay ? ' active':'');
+    stub.innerHTML = `<span class="d">${DAYS_SHORT[i]}</span><span class="c">${count} spot${count===1?'':'s'}</span>`;
+    stub.addEventListener('click', ()=>{ currentDay = i; render(); });
+    ribbon.appendChild(stub);
+  });
+}
+
+function lessonsBlock(lessons){
+  if(!lessons || (Array.isArray(lessons) && lessons.length===0)) return '';
+  if(Array.isArray(lessons)){
+    const rows = lessons.map(item=>`<li><span class="lesson-label">${item.label}</span><span class="lesson-time">${item.time}</span></li>`).join('');
+    return `<div class="venue-meta lessons-block"><strong>Lessons:</strong><ul class="lesson-list">${rows}</ul></div>`;
+  }
+  return `<p class="venue-meta"><i>&#9679;</i><strong>Lessons:</strong> ${lessons}</p>`;
+}
+
+function ratioBar(swingRatio, lineRatio){
+  const pct = Math.round((swingRatio/(swingRatio+lineRatio))*100);
+  return `<div class="ratio-wrap">
+    <div class="ratio-label">Floor mix</div>
+    <div class="ratio-bar"><div class="swing-fill" style="width:${pct}%"></div><div class="seam" style="--seam-pos:${pct}%"></div></div>
+    <div class="ratio-nums">${swingRatio}:${lineRatio} swing to line</div>
+  </div>`;
+}
+
+function renderList(){
+  dayHeading.textContent = DAYS[currentDay];
+  const items = locations.filter(l=>l.days.includes(DAYS[currentDay]));
+  if(items.length===0){
+    cardsEl.innerHTML = `<p class="empty">No floors on the card for ${DAYS[currentDay]} yet. Add one below.</p>`;
+    return;
+  }
+  cardsEl.innerHTML = items.map(l=>{
+    const rs = ratingStats[l.id] || {avg:0, count:0};
+    return `
+    <div class="venue-card">
+      <div>
+        <p class="venue-name">${l.name}</p>
+        <p class="venue-meta"><i>&#9679;</i><strong>Address:</strong> ${l.address}</p>
+        ${l.lessons ? `${lessonsBlock(l.lessons)}` : ''}
+        <p class="venue-meta"><i>&#9679;</i><strong>Open floor:</strong> ${l.openFloor}</p>
+        <p class="venue-meta"><i>&#9679;</i><strong>Price:</strong> ${l.price}</p>
+        <div class="rating-row">
+          ${starDisplay(rs.avg, rs.count)}
+          ${ratingWidget(l.id)}
+        </div>
+      </div>
+      ${ratioBar(l.swingRatio, l.lineRatio)}
+    </div>
+  `;}).join("");
+
+  cardsEl.querySelectorAll('.rate-star').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const locId = btn.getAttribute('data-loc');
+      const val = parseInt(btn.getAttribute('data-val'));
+      await submitRating(locId, val);
+      renderList();
+    });
+  });
+}
+
+const zoomLayer = usSvg.append('g').attr('class','zoom-layer');
+function applyInnerScale(){
+  const k = d3.zoomTransform(usSvg.node()).k;
+  zoomLayer.selectAll('.dot-inner').attr('transform', `scale(${1/k})`);
+}
+
+const zoomBehavior = d3.zoom()
+  .scaleExtent([1, 30])
+  .on('zoom', (event)=>{
+    zoomLayer.attr('transform', event.transform);
+    applyInnerScale();
+  });
+
+document.getElementById('zoom-in').addEventListener('click', ()=>{
+  usSvg.transition().duration(200).call(zoomBehavior.scaleBy, 1.5);
+});
+document.getElementById('zoom-out').addEventListener('click', ()=>{
+  usSvg.transition().duration(200).call(zoomBehavior.scaleBy, 1/1.5);
+});
+document.getElementById('zoom-reset').addEventListener('click', ()=>{
+  usSvg.transition().duration(400).call(zoomBehavior.transform, d3.zoomIdentity);
+});
+
+usSvg.call(zoomBehavior);
+
+async function initMap(){
+  if(mapInitialized) return;
+  mapInitialized = true;
+  try{
+    const topology = await fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/states-albers-10m.json').then(r=>r.json());
+    const states = topojson.feature(topology, topology.objects.states);
+    const path = d3.geoPath();
+    zoomLayer.append('g').attr('class','states-layer')
+      .selectAll('path').data(states.features).enter().append('path')
+      .attr('class','state-outline')
+      .attr('d', path);
+  }catch(e){
+    console.error('Could not load US outline', e);
+  }
+  drawMarkers();
+  detailCard.innerHTML = `<p class="detail-hint">Tap any dot to see that floor's details.</p>`;
+  detailCard.classList.add('show');
+}
+
+function groupLocations(){
+  const groups = new Map();
+  locations.forEach((l,i)=>{
+    if(l.lat==null || l.lng==null) return;
+    const key = l.city ? l.city.trim().toLowerCase() : `${l.lat.toFixed(4)}_${l.lng.toFixed(4)}`;
+    if(!groups.has(key)) groups.set(key, {lat:0, lng:0, city:l.city, items:[]});
+    const grp = groups.get(key);
+    grp.items.push(i);
+  });
+  groups.forEach(grp=>{
+    grp.lat = grp.items.reduce((s,i)=>s+locations[i].lat,0) / grp.items.length;
+    grp.lng = grp.items.reduce((s,i)=>s+locations[i].lng,0) / grp.items.length;
+  });
+  return Array.from(groups.values());
+}
+
+function drawMarkers(){
+  zoomLayer.selectAll('.markers-layer').remove();
+  const g = zoomLayer.append('g').attr('class','markers-layer');
+  const points = groupLocations();
+
+  const groupColor = pt=>{
+    const swingSum = pt.items.reduce((s,i)=>s+locations[i].swingRatio,0);
+    const lineSum = pt.items.reduce((s,i)=>s+locations[i].lineRatio,0);
+    return swingSum >= lineSum ? '#E4BE4A' : '#5A8D8B';
+  };
+
+  const marks = g.selectAll('.us-dot').data(points).enter().append('g')
+    .attr('class', pt=> 'us-dot' + (pt.items.includes(selectedIdx) ? ' selected' : ''))
+    .attr('transform', pt=>{
+      const coords = projection([pt.lng, pt.lat]);
+      return coords ? `translate(${coords[0]},${coords[1]})` : 'translate(-100,-100)';
+    });
+  const inner = marks.append('g').attr('class','dot-inner');
+  inner.append('circle')
+    .attr('class','halo').attr('r',18)
+    .attr('fill', groupColor);
+  inner.append('circle')
+    .attr('r', pt=> pt.items.length>1 ? 8.5 : 6.5)
+    .attr('fill', groupColor)
+    .attr('stroke','#1B2338').attr('stroke-width',1.5);
+  inner.filter(pt=>pt.items.length>1).append('text')
+    .attr('class','count-badge')
+    .attr('y', 4).attr('text-anchor','middle')
+    .text(pt=> pt.items.length);
+  inner.append('text')
+    .attr('class','city-label')
+    .attr('x', 14).attr('y', 5)
+    .text(pt=> pt.city || '');
+  applyInnerScale();
+
+  marks.on('click', (event,pt)=>{
+    zoomToPoint(pt);
+    if(pt.items.length===1){
+      selectedIdx = pt.items[0];
+      d3.selectAll('.us-dot').attr('class', p2=> 'us-dot' + (p2.items.includes(selectedIdx) ? ' selected' : ''));
+      showDetail(locations[selectedIdx]);
+    } else {
+      selectedIdx = null;
+      d3.selectAll('.us-dot').attr('class', p2=> 'us-dot' + (p2===pt ? ' selected' : ''));
+      showPicker(pt);
+    }
+  });
+}
+
+function zoomToPoint(pt){
+  const coords = projection([pt.lng, pt.lat]);
+  if(!coords) return;
+  const currentK = d3.zoomTransform(usSvg.node()).k;
+  const targetK = Math.min(Math.max(currentK * 5, 10), 30);
+  const transform = d3.zoomIdentity
+    .translate(480, 300)
+    .scale(targetK)
+    .translate(-coords[0], -coords[1]);
+  usSvg.transition().duration(500).call(zoomBehavior.transform, transform);
+}
+
+function showPicker(pt){
+  detailCard.classList.add('show');
+  const chips = pt.items.map(i=>`<button class="picker-chip" data-idx="${i}">${locations[i].name}</button>`).join('');
+  detailCard.innerHTML = `
+    <h3>${pt.city || 'This spot'}</h3>
+    <div class="detail-days">${pt.items.length} floors in ${pt.city || 'this area'}</div>
+    <div class="picker-list">${chips}</div>
+  `;
+  detailCard.querySelectorAll('.picker-chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      selectedIdx = parseInt(btn.getAttribute('data-idx'));
+      d3.selectAll('.us-dot').attr('class', p2=> 'us-dot' + (p2.items.includes(selectedIdx) ? ' selected' : ''));
+      showDetail(locations[selectedIdx], pt);
+    });
+  });
+}
+
+function getDirectionsUrl(address){
+  const ua = navigator.userAgent || '';
+  const isApple = /iPad|iPhone|iPod|Macintosh/.test(ua) && !window.MSStream;
+  const q = encodeURIComponent(address);
+  return isApple ? `https://maps.apple.com/?daddr=${q}` : `https://www.google.com/maps/dir/?api=1&destination=${q}`;
+}
+
+function showDetail(l, groupPt){
+  detailCard.classList.add('show');
+  const backBtn = groupPt ? `<button class="back-link" id="back-to-picker" type="button">&larr; Back to ${groupPt.city || 'list'}</button>` : '';
+  const rs = ratingStats[l.id] || {avg:0, count:0};
+  detailCard.innerHTML = `
+    ${backBtn}
+    <h3>${l.name}</h3>
+    <div class="detail-days">${l.days.join(" · ")}</div>
+    <p class="venue-meta"><i>&#9679;</i><strong>Address:</strong> ${l.address}</p>
+    ${l.lessons ? `${lessonsBlock(l.lessons)}` : ''}
+    <p class="venue-meta"><i>&#9679;</i><strong>Open floor:</strong> ${l.openFloor}</p>
+    <p class="venue-meta"><i>&#9679;</i><strong>Price:</strong> ${l.price}</p>
+    ${ratioBar(l.swingRatio, l.lineRatio)}
+    <div class="rating-row">
+      <div class="ratio-label">Rating</div>
+      ${starDisplay(rs.avg, rs.count)}
+      ${ratingWidget(l.id)}
+    </div>
+    <a class="directions-link" href="${getDirectionsUrl(l.address)}" target="_blank" rel="noopener">Get Directions</a>
+  `;
+  if(groupPt){
+    document.getElementById('back-to-picker').addEventListener('click', ()=>{
+      selectedIdx = null;
+      d3.selectAll('.us-dot').attr('class', p2=> 'us-dot' + (p2===groupPt ? ' selected' : ''));
+      showPicker(groupPt);
+    });
+  }
+  detailCard.querySelectorAll('.rate-star').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const locId = btn.getAttribute('data-loc');
+      const val = parseInt(btn.getAttribute('data-val'));
+      await submitRating(locId, val);
+      showDetail(l, groupPt);
+    });
+  });
+}
+
+function render(){
+  buildRibbon();
+  renderList();
+}
+
+function switchView(view){
+  currentView = view;
+  btnList.classList.toggle('active', view==='list');
+  btnMap.classList.toggle('active', view==='map');
+  btnMyLoc.classList.toggle('active', view==='myloc');
+  viewList.style.display = view==='list' ? 'block' : 'none';
+  viewMap.style.display = view==='map' ? 'grid' : 'none';
+  viewMyLoc.style.display = view==='myloc' ? 'block' : 'none';
+  ribbon.style.display = view==='list' ? 'flex' : 'none';
+  if(view==='map') initMap();
+  if(view==='myloc') buildMyLocationPanel();
+}
+
+btnList.addEventListener('click', ()=> switchView('list'));
+btnMap.addEventListener('click', ()=> switchView('map'));
+btnMyLoc.addEventListener('click', ()=> switchView('myloc'));
+
+const fDays = document.getElementById('f-days');
+DAYS.forEach(d=>{
+  const lbl = document.createElement('label');
+  lbl.innerHTML = `<input type="checkbox" value="${d}"> ${d.slice(0,3)}`;
+  fDays.appendChild(lbl);
+});
+
+const fSwing = document.getElementById('f-swing');
+const fLine = document.getElementById('f-line');
+const fRatioOut = document.getElementById('f-ratio-out');
+function updateRatioOut(){
+  fRatioOut.textContent = `${fSwing.value || 0}:${fLine.value || 0} swing to line`;
+}
+fSwing.addEventListener('input', updateRatioOut);
+fLine.addEventListener('input', updateRatioOut);
+
+async function findOrCreateVenue({ name, address, city, lat, lng }){
+  const { data: existing, error: findErr } = await sb.from('venues').select('*').eq('address', address).maybeSingle();
+  if(findErr) console.error('Venue lookup failed', findErr);
+  if(existing) return existing;
+  const { data: created, error: insErr } = await sb.from('venues')
+    .insert({ name, address, city, lat, lng })
+    .select().single();
+  if(insErr) throw insErr;
+  return created;
+}
+
+document.getElementById('add-btn').addEventListener('click', async ()=>{
+  const name = document.getElementById('f-name').value.trim();
+  const price = document.getElementById('f-price').value.trim();
+  const address = document.getElementById('f-address').value.trim();
+  const lessons = document.getElementById('f-lessons').value.trim();
+  const openFloor = document.getElementById('f-openfloor').value.trim();
+  const swingRatio = parseInt(fSwing.value) || 0;
+  const lineRatio = parseInt(fLine.value) || 0;
+  const days = Array.from(fDays.querySelectorAll('input:checked')).map(c=>c.value);
+  if(!name || !address || days.length===0){
+    alert("Give the floor a name, address, and at least one night before adding it.");
+    return;
+  }
+  const addBtn = document.getElementById('add-btn');
+  const originalLabel = addBtn.textContent;
+  addBtn.disabled = true;
+  addBtn.textContent = "Locating…";
+  let lat = null, lng = null, city = "";
+  try{
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=${encodeURIComponent(address)}`);
+    const results = await res.json();
+    if(results && results[0]){
+      lat = parseFloat(results[0].lat);
+      lng = parseFloat(results[0].lon);
+      const a = results[0].address || {};
+      const cityName = a.city || a.town || a.village || a.hamlet || "";
+      const state = a.state_code || a.state || "";
+      city = cityName ? (state ? `${cityName}, ${state}` : cityName) : "";
+    }
+  }catch(e){
+    console.error('Geocoding failed', e);
+  }
+  if(lat===null || lng===null){
+    alert("Couldn't pinpoint that address automatically — try a more specific address.");
+  }
+
+  const row = {
+    name, price: price || "Price TBD",
+    address, lessons: lessons || null, open_floor: openFloor || "Time TBD",
+    swing_ratio: swingRatio, line_ratio: lineRatio, days,
+    lat, lng, city
+  };
+
+  addBtn.textContent = "Saving…";
+  if(isDev){
+    try{
+      const venue = await findOrCreateVenue({ name, address, city, lat, lng });
+      const { error } = await sb.from('schedules').insert({
+        venue_id: venue.id, name, lessons: lessons || null,
+        open_floor: openFloor || "Time TBD", price: price || "Price TBD",
+        swing_ratio: swingRatio, line_ratio: lineRatio, days
+      });
+      if(error) throw error;
+      await loadLocations();
+      render();
+      if(mapInitialized) drawMarkers();
+    }catch(err){
+      console.error(err);
+      alert("Couldn't save that location: " + err.message);
+    }
+  } else {
+    const rowWithUser = { ...row, submitted_by: currentUser ? currentUser.id : null };
+    const { error } = await sb.from('suggestions').insert(rowWithUser);
+    if(error){
+      console.error(error);
+      alert("Couldn't submit that suggestion: " + error.message);
+    } else {
+      alert("Thanks! Your suggestion has been sent to a developer for review.");
+    }
+  }
+
+  addBtn.disabled = false;
+  addBtn.textContent = originalLabel;
+  document.getElementById('f-name').value='';
+  document.getElementById('f-price').value='';
+  document.getElementById('f-address').value='';
+  document.getElementById('f-lessons').value='';
+  document.getElementById('f-openfloor').value='';
+  fSwing.value=2; fLine.value=1; updateRatioOut();
+  fDays.querySelectorAll('input').forEach(c=>c.checked=false);
+});
+
+let authMode = 'signin';
+
+function updateRoleUI(){
+  const summary = document.getElementById('add-panel-summary');
+  const note = document.getElementById('add-panel-note');
+  const btn = document.getElementById('add-btn');
+  const reviewPanel = document.getElementById('review-panel');
+  if(isDev){
+    summary.textContent = "Add a location to the card";
+    note.style.display = 'none';
+    btn.textContent = "Add to the card";
+    reviewPanel.style.display = 'block';
+    loadSuggestions();
+  } else {
+    summary.textContent = "Suggest a location for the card";
+    note.style.display = 'block';
+    btn.textContent = "Submit suggestion";
+    reviewPanel.style.display = 'none';
+  }
+  btnMyLoc.style.display = isContributor ? 'inline-block' : 'none';
+  if(isContributor){
+    if(currentView==='myloc') buildMyLocationPanel();
+  } else if(currentView==='myloc'){
+    switchView('list');
+  }
+}
+
+function buildMyLocationPanel(){
+  const list = document.getElementById('my-location-list');
+  const owned = locations.filter(l=> l.ownerId === (currentUser && currentUser.id));
+  if(owned.length===0){
+    list.innerHTML = `<p class="detail-hint">No venue is linked to your account yet — ask a developer to assign one to you.</p>`;
+    return;
+  }
+  // Group schedules by venue (usually just one venue, but handle multiple gracefully)
+  const byVenue = new Map();
+  owned.forEach(l=>{
+    if(!byVenue.has(l.venueId)) byVenue.set(l.venueId, { venueId: l.venueId, address: l.address, city: l.city, schedules: [] });
+    byVenue.get(l.venueId).schedules.push(l);
+  });
+
+  list.innerHTML = Array.from(byVenue.values()).map(v=>`
+    <div class="my-loc-card" data-venue-id="${v.venueId}">
+      <p class="venue-name">${v.schedules[0].name.split(' — ')[0]}</p>
+      <div class="form-grid">
+        <div class="full">
+          <label>Address</label>
+          <input type="text" class="ml-venue-address" value="${v.address || ''}">
+        </div>
+      </div>
+      <button class="add-btn ml-venue-save" type="button" style="margin-top:10px;">Save address</button>
+      <p class="auth-note ml-venue-note"></p>
+
+      ${v.schedules.map(l=>`
+        <div class="ml-schedule" data-id="${l.id}" style="margin-top:18px; padding-top:14px; border-top:1px solid var(--line-hair);">
+          <p class="venue-meta"><strong>Night(s):</strong> ${l.days.join(', ')}</p>
+          <div class="form-grid">
+            <div>
+              <label>Price</label>
+              <input type="text" class="ml-price" value="${l.price || ''}">
+            </div>
+            <div>
+              <label>Open floor dancing</label>
+              <input type="text" class="ml-openfloor" value="${l.openFloor || ''}">
+            </div>
+            <div>
+              <label>Lessons (optional)</label>
+              <input type="text" class="ml-lessons" value="${typeof l.lessons==='string' ? l.lessons : ''}">
+            </div>
+            <div>
+              <label>Swing / line ratio</label>
+              <div class="range-row">
+                <input type="number" class="ml-swing" min="0" value="${l.swingRatio}" style="width:56px;">
+                <span style="color:var(--parchment-dim);">:</span>
+                <input type="number" class="ml-line" min="0" value="${l.lineRatio}" style="width:56px;">
+              </div>
+            </div>
+          </div>
+          <button class="add-btn ml-save" type="button" style="margin-top:12px;">Save changes</button>
+          <p class="auth-note ml-note"></p>
+        </div>
+      `).join('')}
+    </div>
+  `).join("");
+
+  list.querySelectorAll('.my-loc-card').forEach(card=>{
+    const venueId = card.getAttribute('data-venue-id');
+    card.querySelector('.ml-venue-save').addEventListener('click', async ()=>{
+      const note = card.querySelector('.ml-venue-note');
+      note.textContent = '';
+      const address = card.querySelector('.ml-venue-address').value.trim();
+      const { error } = await sb.from('venues').update({ address }).eq('id', venueId);
+      if(error){
+        note.textContent = "Couldn't save: " + error.message;
+      } else {
+        note.textContent = "Saved.";
+        await loadLocations();
+        render();
+        if(mapInitialized) drawMarkers();
+      }
+    });
+  });
+
+  list.querySelectorAll('.ml-schedule').forEach(card=>{
+    const id = card.getAttribute('data-id');
+    card.querySelector('.ml-save').addEventListener('click', async ()=>{
+      const note = card.querySelector('.ml-note');
+      note.textContent = '';
+      const update = {
+        price: card.querySelector('.ml-price').value.trim(),
+        open_floor: card.querySelector('.ml-openfloor').value.trim(),
+        lessons: card.querySelector('.ml-lessons').value.trim() || null,
+        swing_ratio: parseInt(card.querySelector('.ml-swing').value) || 0,
+        line_ratio: parseInt(card.querySelector('.ml-line').value) || 0
+      };
+      const { error } = await sb.from('schedules').update(update).eq('id', id);
+      if(error){
+        note.textContent = "Couldn't save: " + error.message;
+      } else {
+        note.textContent = "Saved.";
+        await loadLocations();
+        render();
+        if(mapInitialized) drawMarkers();
+      }
+    });
+  });
+}
+
+function updateAuthUI(){
+  const signedOut = document.getElementById('auth-signedout');
+  const signedIn = document.getElementById('auth-signedin');
+  const status = document.getElementById('auth-status');
+  if(currentUser){
+    signedOut.style.display = 'none';
+    signedIn.style.display = 'flex';
+    const roleLabel = isDev ? '<span class="role-dev">(Developer)</span>'
+      : isContributor ? '<span class="role-contributor">(Contributor)</span>'
+      : '(Member)';
+    status.innerHTML = `${currentUser.email} ${roleLabel}`;
+  } else {
+    signedOut.style.display = 'block';
+    signedIn.style.display = 'none';
+  }
+  updateRoleUI();
+}
+
+async function loadProfile(){
+  if(!currentUser){ isDev = false; isContributor = false; userRole = null; return; }
+  const { data, error } = await sb.from('profiles').select('role').eq('id', currentUser.id).single();
+  if(error){ console.error('Could not load profile', error); isDev = false; isContributor = false; userRole = null; return; }
+  userRole = (data && data.role) || 'member';
+  isDev = userRole === 'developer';
+  isContributor = userRole === 'contributor';
+}
+
+async function checkSession(){
+  const { data } = await sb.auth.getSession();
+  if(data && data.session){
+    currentUser = data.session.user;
+    await loadProfile();
+  }
+  await loadMyRatings();
+  updateAuthUI();
+}
+
+document.getElementById('auth-open-login').addEventListener('click', ()=>{
+  const panel = document.getElementById('auth-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+});
+
+document.getElementById('tab-signin').addEventListener('click', ()=>{
+  authMode = 'signin';
+  document.getElementById('tab-signin').classList.add('active');
+  document.getElementById('tab-signup').classList.remove('active');
+  document.getElementById('auth-submit').textContent = 'Sign in';
+});
+document.getElementById('tab-signup').addEventListener('click', ()=>{
+  authMode = 'signup';
+  document.getElementById('tab-signup').classList.add('active');
+  document.getElementById('tab-signin').classList.remove('active');
+  document.getElementById('auth-submit').textContent = 'Create account';
+});
+
+document.getElementById('auth-submit').addEventListener('click', async ()=>{
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const note = document.getElementById('auth-note');
+  note.textContent = '';
+  if(!email || !password){ note.textContent = 'Enter an email and password.'; return; }
+  const btn = document.getElementById('auth-submit');
+  btn.disabled = true;
+  if(authMode === 'signin'){
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if(error){
+      note.textContent = error.message;
+    } else {
+      currentUser = data.user;
+      await loadProfile();
+      await loadMyRatings();
+      updateAuthUI();
+      render();
+      if(mapInitialized) drawMarkers();
+      document.getElementById('auth-panel').style.display = 'none';
+    }
+  } else {
+    const { data, error } = await sb.auth.signUp({ email, password });
+    if(error){
+      note.textContent = error.message;
+    } else if(data.user && !data.session){
+      note.textContent = "Check your email to confirm your account, then sign in.";
+    } else {
+      currentUser = data.user;
+      await loadProfile();
+      await loadMyRatings();
+      updateAuthUI();
+      render();
+      if(mapInitialized) drawMarkers();
+      document.getElementById('auth-panel').style.display = 'none';
+    }
+  }
+  btn.disabled = false;
+});
+
+document.getElementById('auth-logout').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  currentUser = null;
+  isDev = false;
+  isContributor = false;
+  userRole = null;
+  myRatings = {};
+  updateAuthUI();
+  render();
+  if(mapInitialized) drawMarkers();
+});
+
+async function loadSuggestions(){
+  const list = document.getElementById('review-list');
+  const { data, error } = await sb.from('suggestions').select('*').order('created_at', { ascending:false });
+  if(error){
+    list.innerHTML = `<p class="detail-hint">Couldn't load suggestions.</p>`;
+    console.error(error);
+    return;
+  }
+  if(!data || data.length===0){
+    list.innerHTML = `<p class="detail-hint">No pending suggestions right now.</p>`;
+    return;
+  }
+  list.innerHTML = data.map(s=>`
+    <div class="review-card" data-id="${s.id}">
+      <p class="venue-name">${s.name}</p>
+      <p class="venue-meta"><i>&#9679;</i><strong>Address:</strong> ${s.address}</p>
+      <p class="venue-meta"><i>&#9679;</i><strong>Open floor:</strong> ${s.open_floor || ''}</p>
+      <p class="venue-meta"><i>&#9679;</i><strong>Price:</strong> ${s.price || ''}</p>
+      <p class="venue-meta"><i>&#9679;</i><strong>Nights:</strong> ${(s.days||[]).join(', ')}</p>
+      <div class="review-actions">
+        <button class="review-btn approve" data-action="approve" data-id="${s.id}">Approve</button>
+        <button class="review-btn reject" data-action="reject" data-id="${s.id}">Reject</button>
+      </div>
+    </div>
+  `).join('');
+  list.querySelectorAll('.review-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.getAttribute('data-id');
+      const action = btn.getAttribute('data-action');
+      const suggestion = data.find(s=>s.id===id);
+      btn.closest('.review-card').style.opacity = '0.5';
+      if(action==='approve' && suggestion){
+        try{
+          const venue = await findOrCreateVenue({
+            name: suggestion.name, address: suggestion.address,
+            city: suggestion.city, lat: suggestion.lat, lng: suggestion.lng
+          });
+          const { error: insErr } = await sb.from('schedules').insert({
+            venue_id: venue.id, name: suggestion.name, lessons: suggestion.lessons,
+            open_floor: suggestion.open_floor, price: suggestion.price,
+            swing_ratio: suggestion.swing_ratio, line_ratio: suggestion.line_ratio,
+            days: suggestion.days
+          });
+          if(insErr) throw insErr;
+        }catch(err){
+          alert('Could not approve: ' + err.message);
+          return;
+        }
+      }
+      const { error: delErr } = await sb.from('suggestions').delete().eq('id', id);
+      if(delErr) console.error(delErr);
+      await loadLocations();
+      render();
+      if(mapInitialized) drawMarkers();
+      loadSuggestions();
+    });
+  });
+}
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(err=>console.error('SW registration failed', err));
+  });
+}
+
+(async function init(){
+  await loadLocations();
+  await loadRatingStats();
+  await checkSession();
+  render();
+})();
+</script>
+</body>
+</html>
