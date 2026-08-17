@@ -350,11 +350,8 @@
   .venue-card{
     background:var(--ink-2);
     border:1px solid var(--line-hair);
-    border-radius:4px;
-    padding:16px 18px;
-    display:grid;
-    grid-template-columns:1fr auto;
-    gap:10px 16px;
+    border-radius:8px;
+    overflow:hidden;
   }
   .venue-name{
     font-family:'Oswald',sans-serif;
@@ -364,6 +361,76 @@
     color:var(--parchment);
     margin:0 0 4px;
   }
+  .acc-block .card-header{
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:18px;
+    border-radius:6px;
+    transition:background-color .15s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .acc-block .card-header:hover{background-color:rgba(201,162,39,0.10);}
+  .acc-block .card-header:active{background-color:rgba(201,162,39,0.16);}
+  .card-header .venue-name{margin:0; font-size:18px;}
+  .header-right{display:flex; align-items:center; gap:12px; flex-shrink:0;}
+  .expand-btn{
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    background:var(--brass);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+    box-shadow:0 1px 4px rgba(0,0,0,0.35);
+    transition:transform .2s ease, background-color .2s ease;
+  }
+  .acc-block .card-header:hover .expand-btn{transform:scale(1.06);}
+  .acc-block.expanded .expand-btn{background:var(--brass-bright);}
+  .chevron{
+    width:9px;
+    height:9px;
+    border-right:2.5px solid var(--ink);
+    border-bottom:2.5px solid var(--ink);
+    transform:rotate(45deg);
+    transition:transform .3s cubic-bezier(.4,0,.2,1);
+    margin-top:-3px;
+  }
+  .acc-block.expanded .chevron{transform:rotate(-135deg); margin-top:3px;}
+  .summary-meta{font-size:13px; white-space:nowrap;}
+  .info-body-wrap{
+    max-height:0;
+    overflow:hidden;
+    opacity:0;
+    transition:max-height .32s cubic-bezier(.4,0,.2,1), opacity .25s ease;
+  }
+  .acc-block.expanded .info-body-wrap{opacity:1;}
+  .info-body{
+    padding:0 18px 18px;
+    padding-top:14px;
+    border-top:1px solid var(--line-hair);
+    margin-top:2px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .info-body .directions-link{align-self:flex-start; margin-top:8px;}
+  .social-row{display:flex; gap:10px; margin-top:4px;}
+  .social-link{
+    font-family:'Oswald',sans-serif;
+    font-size:11.5px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--denim-bright);
+    border:1px solid var(--denim-bright);
+    border-radius:999px;
+    padding:5px 12px;
+    text-decoration:none;
+  }
+  .social-link:hover{background:var(--denim-bright); color:var(--ink);}
   .venue-meta{
     font-size:13.5px;
     color:var(--parchment-dim);
@@ -397,9 +464,8 @@
   .lesson-label{color:var(--parchment-dim);}
   .lesson-time{color:var(--parchment); font-family:'Oswald',sans-serif; font-size:12px; white-space:nowrap;}
   .ratio-wrap{
-    align-self:center;
-    min-width:120px;
-    text-align:right;
+    padding:0 18px 18px;
+    text-align:left;
   }
   .ratio-label{
     font-family:'Oswald',sans-serif;
@@ -483,11 +549,13 @@
   }
   .picker-list{
     display:flex;
-    flex-wrap:wrap;
+    flex-direction:column;
     gap:8px;
     margin-top:10px;
   }
   .picker-chip{
+    width:100%;
+    text-align:left;
     font-family:'Oswald',sans-serif;
     font-size:12px;
     letter-spacing:.02em;
@@ -497,7 +565,6 @@
     border-radius:4px;
     padding:8px 12px;
     cursor:pointer;
-    text-align:left;
   }
   .picker-chip:hover{background:var(--brass); color:var(--ink);}
   .back-link{
@@ -579,6 +646,12 @@
     margin:0 0 4px;
     color:var(--parchment);
   }
+  .detail-title{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:22px;
+    letter-spacing:.03em;
+    color:var(--parchment);
+  }
   .detail-days{
     font-family:'Oswald',sans-serif;
     font-size:11px;
@@ -622,7 +695,7 @@
     color:var(--parchment-dim);
     margin-bottom:5px;
   }
-  .form-grid input, .form-grid select{
+  .form-grid input, .form-grid select, .form-grid textarea{
     width:100%;
     background:var(--ink);
     border:1px solid var(--line-hair);
@@ -632,7 +705,8 @@
     padding:8px 10px;
     border-radius:3px;
   }
-  .form-grid input:focus, .form-grid select:focus{
+  .form-grid textarea{resize:vertical; min-height:90px;}
+  .form-grid input:focus, .form-grid select:focus, .form-grid textarea:focus{
     outline:1px solid var(--brass);
     border-color:var(--brass);
   }
@@ -676,9 +750,6 @@
 
   @media (max-width:640px){
     .form-grid{grid-template-columns:1fr;}
-    .venue-card{grid-template-columns:1fr;}
-    .ratio-wrap{text-align:left;}
-    .ratio-bar{width:100%;}
     .auth-panel{max-width:100%; margin-left:0;}
     .toggle button{padding:9px 14px; font-size:11.5px;}
     .zoom-btn{width:36px; height:36px; font-size:18px;}
@@ -692,6 +763,8 @@
     .toggle{width:100%;}
     .toggle button{flex:1; padding:9px 8px;}
     .legend{width:100%; justify-content:flex-start;}
+    .summary-meta{font-size:11.5px;}
+    .expand-btn{width:36px; height:36px;}
   }
 </style>
 </head>
@@ -731,6 +804,8 @@
       <button id="btn-list" class="active">List</button>
       <button id="btn-map">Map</button>
       <button id="btn-myloc" style="display:none;">My Location</button>
+      <button id="btn-suggestions" style="display:none;">Suggestions</button>
+      <button id="btn-feedback">Feedback</button>
     </div>
     <div class="legend">
       <span><span class="dot swing"></span>Swing</span>
@@ -761,6 +836,41 @@
   <div id="view-mylocation" style="display:none;">
     <h2 class="day-heading">My Location</h2>
     <div id="my-location-list"></div>
+  </div>
+
+  <div id="view-suggestions" style="display:none;">
+    <h2 class="day-heading">Pending Suggestions</h2>
+    <div id="review-list"></div>
+  </div>
+
+  <div id="view-feedback" style="display:none;">
+    <h2 class="day-heading">Report a Bug or Send a Suggestion</h2>
+    <p class="suggestion-note">Found something broken, or have an idea to make this better? Let us know — this goes straight to the developer, not the public list.</p>
+    <div class="form-grid">
+      <div class="full">
+        <label>What kind of report is this?</label>
+        <select id="fb-type">
+          <option value="bug">Bug — something's broken</option>
+          <option value="information">Information — venue details are wrong or missing</option>
+          <option value="suggestion">Suggestion — an idea for improvement</option>
+        </select>
+      </div>
+      <div class="full">
+        <label>Details</label>
+        <textarea id="fb-message" rows="5" placeholder="What happened, or what would you like to see?"></textarea>
+      </div>
+      <div class="full">
+        <label>Email (optional, if you want a reply)</label>
+        <input type="text" id="fb-email" placeholder="you@example.com">
+      </div>
+    </div>
+    <button class="add-btn" id="fb-submit" type="button">Send Report</button>
+    <p class="auth-note" id="fb-note"></p>
+
+    <div class="review-panel" id="feedback-review-panel" style="display:none;">
+      <h3>Open Reports</h3>
+      <div id="feedback-review-list"></div>
+    </div>
   </div>
 
   <details class="add-panel">
@@ -800,14 +910,17 @@
         <label>Night(s) it runs</label>
         <div class="days-check" id="f-days"></div>
       </div>
+      <div>
+        <label>Instagram (optional)</label>
+        <input type="text" id="f-instagram" placeholder="e.g. instagram.com/venue">
+      </div>
+      <div>
+        <label>Website (optional)</label>
+        <input type="text" id="f-website" placeholder="e.g. venuewebsite.com">
+      </div>
     </div>
     <button class="add-btn" id="add-btn">Submit suggestion</button>
   </details>
-
-  <div class="review-panel" id="review-panel" style="display:none;">
-    <h3>Pending Suggestions</h3>
-    <div id="review-list"></div>
-  </div>
 
 </div>
 
@@ -844,22 +957,33 @@ function rowToLocation(row){
     swingRatio: row.swing_ratio,
     lineRatio: row.line_ratio,
     days: row.days || [],
-    ownerId: venue.owner_id
+    ownerId: venue.owner_id,
+    instagramUrl: venue.instagram_url,
+    websiteUrl: venue.website_url
   };
+}
+
+let dataLoadError = null;
+
+function describeSupabaseError(error){
+  if(!error) return 'Unknown error';
+  return error.message || error.error_description || error.hint || JSON.stringify(error);
 }
 
 async function loadLocations(){
   const { data, error } = await sb.from('schedules').select('*, venues(*)').order('name');
   if(error){
-    console.error('Failed to load locations', error);
+    dataLoadError = describeSupabaseError(error);
+    console.error('Failed to load locations:', dataLoadError, error);
     return;
   }
+  dataLoadError = null;
   locations = (data || []).map(rowToLocation);
 }
 
 async function loadRatingStats(){
   const { data, error } = await sb.from('location_rating_stats').select('*');
-  if(error){ console.error('Failed to load rating stats', error); return; }
+  if(error){ console.error('Failed to load rating stats:', describeSupabaseError(error), error); return; }
   ratingStats = {};
   (data || []).forEach(r=>{ ratingStats[r.location_id] = { avg: parseFloat(r.avg_stars), count: r.rating_count }; });
 }
@@ -868,7 +992,7 @@ async function loadMyRatings(){
   myRatings = {};
   if(!currentUser) return;
   const { data, error } = await sb.from('ratings').select('schedule_id, stars').eq('user_id', currentUser.id);
-  if(error){ console.error('Failed to load my ratings', error); return; }
+  if(error){ console.error('Failed to load my ratings:', describeSupabaseError(error), error); return; }
   (data || []).forEach(r=>{ myRatings[r.schedule_id] = r.stars; });
 }
 
@@ -921,9 +1045,13 @@ const dayHeading = document.getElementById('day-heading');
 const btnList = document.getElementById('btn-list');
 const btnMap = document.getElementById('btn-map');
 const btnMyLoc = document.getElementById('btn-myloc');
+const btnSuggestions = document.getElementById('btn-suggestions');
+const btnFeedback = document.getElementById('btn-feedback');
 const viewList = document.getElementById('view-list');
 const viewMap = document.getElementById('view-map');
 const viewMyLoc = document.getElementById('view-mylocation');
+const viewSuggestions = document.getElementById('view-suggestions');
+const viewFeedback = document.getElementById('view-feedback');
 const detailCard = document.getElementById('detail-card');
 const usSvg = d3.select('#us-svg');
 const projection = d3.geoAlbersUsa().scale(1280).translate([480,300]);
@@ -959,8 +1087,49 @@ function ratioBar(swingRatio, lineRatio){
   </div>`;
 }
 
+function normalizeUrl(u){
+  if(!u) return u;
+  const trimmed = u.trim();
+  if(!trimmed) return '';
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+function socialLinks(l){
+  const links = [];
+  if(l.instagramUrl) links.push(`<a class="social-link" href="${normalizeUrl(l.instagramUrl)}" target="_blank" rel="noopener">Instagram</a>`);
+  if(l.websiteUrl) links.push(`<a class="social-link" href="${normalizeUrl(l.websiteUrl)}" target="_blank" rel="noopener">Website</a>`);
+  if(links.length===0) return '';
+  return `<div class="social-row">${links.join('')}</div>`;
+}
+
+function initAccordions(root){
+  root.querySelectorAll('.acc-block').forEach(block=>{
+    const header = block.querySelector('.card-header[data-acc-toggle]');
+    const wrap = block.querySelector('.info-body-wrap');
+    if(!header || !wrap) return;
+    if(block.classList.contains('expanded')){
+      wrap.style.maxHeight = wrap.scrollHeight + 'px';
+    }
+    header.addEventListener('click', ()=>{
+      const isOpen = block.classList.contains('expanded');
+      if(isOpen){
+        wrap.style.maxHeight = wrap.scrollHeight + 'px';
+        requestAnimationFrame(()=>{ wrap.style.maxHeight = '0px'; });
+        block.classList.remove('expanded');
+      } else {
+        block.classList.add('expanded');
+        wrap.style.maxHeight = wrap.scrollHeight + 'px';
+      }
+    });
+  });
+}
+
 function renderList(){
   dayHeading.textContent = DAYS[currentDay];
+  if(dataLoadError){
+    cardsEl.innerHTML = `<p class="empty">Couldn't load the location data: ${dataLoadError}. Try reloading the page — if it keeps happening, check the browser console for details.</p>`;
+    return;
+  }
   const items = locations.filter(l=>l.days.includes(DAYS[currentDay]));
   if(items.length===0){
     cardsEl.innerHTML = `<p class="empty">No floors on the card for ${DAYS[currentDay]} yet. Add one below.</p>`;
@@ -970,15 +1139,26 @@ function renderList(){
     const rs = ratingStats[l.id] || {avg:0, count:0};
     return `
     <div class="venue-card">
-      <div>
-        <p class="venue-name">${l.name}</p>
-        <p class="venue-meta"><i>&#9679;</i><strong>Address:</strong> ${l.address}</p>
-        ${l.lessons ? `${lessonsBlock(l.lessons)}` : ''}
-        <p class="venue-meta"><i>&#9679;</i><strong>Open floor:</strong> ${l.openFloor}</p>
-        <p class="venue-meta"><i>&#9679;</i><strong>Price:</strong> ${l.price}</p>
-        <div class="rating-row">
-          ${starDisplay(rs.avg, rs.count)}
-          ${ratingWidget(l.id)}
+      <div class="acc-block">
+        <div class="card-header" data-acc-toggle>
+          <span class="venue-name">${l.name}</span>
+          <span class="header-right">
+            <span class="summary-meta">${starDisplay(rs.avg, rs.count)}</span>
+            <span class="expand-btn"><span class="chevron"></span></span>
+          </span>
+        </div>
+        <div class="info-body-wrap">
+          <div class="info-body">
+            <p class="venue-meta"><i>&#9679;</i><strong>Address:</strong> ${l.address}</p>
+            ${l.lessons ? `${lessonsBlock(l.lessons)}` : ''}
+            <p class="venue-meta"><i>&#9679;</i><strong>Open floor:</strong> ${l.openFloor}</p>
+            <p class="venue-meta"><i>&#9679;</i><strong>Price:</strong> ${l.price}</p>
+            ${socialLinks(l)}
+            <div class="rating-row">
+              ${ratingWidget(l.id)}
+            </div>
+            <a class="directions-link" href="${getDirectionsUrl(l.address)}" target="_blank" rel="noopener">Get Directions</a>
+          </div>
         </div>
       </div>
       ${ratioBar(l.swingRatio, l.lineRatio)}
@@ -994,6 +1174,7 @@ function renderList(){
       renderList();
     });
   });
+  initAccordions(cardsEl);
 }
 
 const zoomLayer = usSvg.append('g').attr('class','zoom-layer');
@@ -1147,19 +1328,32 @@ function showDetail(l, groupPt){
   const rs = ratingStats[l.id] || {avg:0, count:0};
   detailCard.innerHTML = `
     ${backBtn}
-    <h3>${l.name}</h3>
-    <div class="detail-days">${l.days.join(" · ")}</div>
-    <p class="venue-meta"><i>&#9679;</i><strong>Address:</strong> ${l.address}</p>
-    ${l.lessons ? `${lessonsBlock(l.lessons)}` : ''}
-    <p class="venue-meta"><i>&#9679;</i><strong>Open floor:</strong> ${l.openFloor}</p>
-    <p class="venue-meta"><i>&#9679;</i><strong>Price:</strong> ${l.price}</p>
-    ${ratioBar(l.swingRatio, l.lineRatio)}
-    <div class="rating-row">
-      <div class="ratio-label">Rating</div>
-      ${starDisplay(rs.avg, rs.count)}
-      ${ratingWidget(l.id)}
+    <div class="acc-block${groupPt ? ' expanded' : ''}">
+      <div class="card-header" data-acc-toggle>
+        <span class="detail-title">${l.name}</span>
+        <span class="header-right">
+          <span class="summary-meta">${starDisplay(rs.avg, rs.count)}</span>
+          <span class="expand-btn"><span class="chevron"></span></span>
+        </span>
+      </div>
+      <div class="info-body-wrap">
+        <div class="info-body">
+          <div class="detail-days">${l.days.join(" · ")}</div>
+          <p class="venue-meta"><i>&#9679;</i><strong>Address:</strong> ${l.address}</p>
+          ${l.lessons ? `${lessonsBlock(l.lessons)}` : ''}
+          <p class="venue-meta"><i>&#9679;</i><strong>Open floor:</strong> ${l.openFloor}</p>
+          <p class="venue-meta"><i>&#9679;</i><strong>Price:</strong> ${l.price}</p>
+          ${socialLinks(l)}
+          ${ratioBar(l.swingRatio, l.lineRatio)}
+          <div class="rating-row">
+            <div class="ratio-label">Rating</div>
+            ${starDisplay(rs.avg, rs.count)}
+            ${ratingWidget(l.id)}
+          </div>
+          <a class="directions-link" href="${getDirectionsUrl(l.address)}" target="_blank" rel="noopener">Get Directions</a>
+        </div>
+      </div>
     </div>
-    <a class="directions-link" href="${getDirectionsUrl(l.address)}" target="_blank" rel="noopener">Get Directions</a>
   `;
   if(groupPt){
     document.getElementById('back-to-picker').addEventListener('click', ()=>{
@@ -1176,6 +1370,7 @@ function showDetail(l, groupPt){
       showDetail(l, groupPt);
     });
   });
+  initAccordions(detailCard);
 }
 
 function render(){
@@ -1188,16 +1383,24 @@ function switchView(view){
   btnList.classList.toggle('active', view==='list');
   btnMap.classList.toggle('active', view==='map');
   btnMyLoc.classList.toggle('active', view==='myloc');
+  btnSuggestions.classList.toggle('active', view==='suggestions');
+  btnFeedback.classList.toggle('active', view==='feedback');
   viewList.style.display = view==='list' ? 'block' : 'none';
   viewMap.style.display = view==='map' ? 'grid' : 'none';
   viewMyLoc.style.display = view==='myloc' ? 'block' : 'none';
+  viewSuggestions.style.display = view==='suggestions' ? 'block' : 'none';
+  viewFeedback.style.display = view==='feedback' ? 'block' : 'none';
   ribbon.style.display = view==='list' ? 'flex' : 'none';
   if(view==='map') initMap();
   if(view==='myloc') buildMyLocationPanel();
+  if(view==='suggestions' && isDev) loadSuggestions();
+  if(view==='feedback' && isDev) loadFeedbackQueue();
 }
 
 btnList.addEventListener('click', ()=> switchView('list'));
 btnMap.addEventListener('click', ()=> switchView('map'));
+btnSuggestions.addEventListener('click', ()=> switchView('suggestions'));
+btnFeedback.addEventListener('click', ()=> switchView('feedback'));
 btnMyLoc.addEventListener('click', ()=> switchView('myloc'));
 
 const fDays = document.getElementById('f-days');
@@ -1216,12 +1419,12 @@ function updateRatioOut(){
 fSwing.addEventListener('input', updateRatioOut);
 fLine.addEventListener('input', updateRatioOut);
 
-async function findOrCreateVenue({ name, address, city, lat, lng }){
+async function findOrCreateVenue({ name, address, city, lat, lng, instagramUrl, websiteUrl }){
   const { data: existing, error: findErr } = await sb.from('venues').select('*').eq('address', address).maybeSingle();
   if(findErr) console.error('Venue lookup failed', findErr);
   if(existing) return existing;
   const { data: created, error: insErr } = await sb.from('venues')
-    .insert({ name, address, city, lat, lng })
+    .insert({ name, address, city, lat, lng, instagram_url: instagramUrl || null, website_url: websiteUrl || null })
     .select().single();
   if(insErr) throw insErr;
   return created;
@@ -1236,6 +1439,8 @@ document.getElementById('add-btn').addEventListener('click', async ()=>{
   const swingRatio = parseInt(fSwing.value) || 0;
   const lineRatio = parseInt(fLine.value) || 0;
   const days = Array.from(fDays.querySelectorAll('input:checked')).map(c=>c.value);
+  const instagramUrl = document.getElementById('f-instagram').value.trim();
+  const websiteUrl = document.getElementById('f-website').value.trim();
   if(!name || !address || days.length===0){
     alert("Give the floor a name, address, and at least one night before adding it.");
     return;
@@ -1267,13 +1472,14 @@ document.getElementById('add-btn').addEventListener('click', async ()=>{
     name, price: price || "Price TBD",
     address, lessons: lessons || null, open_floor: openFloor || "Time TBD",
     swing_ratio: swingRatio, line_ratio: lineRatio, days,
-    lat, lng, city
+    lat, lng, city,
+    instagram_url: instagramUrl || null, website_url: websiteUrl || null
   };
 
   addBtn.textContent = "Saving…";
   if(isDev){
     try{
-      const venue = await findOrCreateVenue({ name, address, city, lat, lng });
+      const venue = await findOrCreateVenue({ name, address, city, lat, lng, instagramUrl, websiteUrl });
       const { error } = await sb.from('schedules').insert({
         venue_id: venue.id, name, lessons: lessons || null,
         open_floor: openFloor || "Time TBD", price: price || "Price TBD",
@@ -1305,34 +1511,61 @@ document.getElementById('add-btn').addEventListener('click', async ()=>{
   document.getElementById('f-address').value='';
   document.getElementById('f-lessons').value='';
   document.getElementById('f-openfloor').value='';
+  document.getElementById('f-instagram').value='';
+  document.getElementById('f-website').value='';
   fSwing.value=2; fLine.value=1; updateRatioOut();
   fDays.querySelectorAll('input').forEach(c=>c.checked=false);
 });
 
+function setNote(el, text, ms=4000){
+  if(!el) return;
+  el.textContent = text;
+  if(el._noteTimer) clearTimeout(el._noteTimer);
+  if(text){
+    el._noteTimer = setTimeout(()=>{ el.textContent = ''; el._noteTimer = null; }, ms);
+  }
+}
+
 let authMode = 'signin';
+
+function clearPrivilegedUI(){
+  const reviewList = document.getElementById('review-list');
+  if(reviewList) reviewList.innerHTML = '';
+  const fbPanel = document.getElementById('feedback-review-panel');
+  if(fbPanel) fbPanel.style.display = 'none';
+  const fbList = document.getElementById('feedback-review-list');
+  if(fbList) fbList.innerHTML = '';
+  const myLocList = document.getElementById('my-location-list');
+  if(myLocList) myLocList.innerHTML = '';
+}
 
 function updateRoleUI(){
   const summary = document.getElementById('add-panel-summary');
   const note = document.getElementById('add-panel-note');
   const btn = document.getElementById('add-btn');
-  const reviewPanel = document.getElementById('review-panel');
   if(isDev){
     summary.textContent = "Add a location to the card";
     note.style.display = 'none';
     btn.textContent = "Add to the card";
-    reviewPanel.style.display = 'block';
-    loadSuggestions();
   } else {
     summary.textContent = "Suggest a location for the card";
     note.style.display = 'block';
     btn.textContent = "Submit suggestion";
-    reviewPanel.style.display = 'none';
+  }
+  btnSuggestions.style.display = isDev ? 'inline-block' : 'none';
+  if(isDev){
+    if(currentView==='suggestions') loadSuggestions();
+  } else if(currentView==='suggestions'){
+    switchView('list');
   }
   btnMyLoc.style.display = isContributor ? 'inline-block' : 'none';
   if(isContributor){
     if(currentView==='myloc') buildMyLocationPanel();
   } else if(currentView==='myloc'){
     switchView('list');
+  }
+  if(!isDev && !isContributor){
+    clearPrivilegedUI();
   }
 }
 
@@ -1358,8 +1591,16 @@ function buildMyLocationPanel(){
           <label>Address</label>
           <input type="text" class="ml-venue-address" value="${v.address || ''}">
         </div>
+        <div>
+          <label>Instagram (optional)</label>
+          <input type="text" class="ml-venue-instagram" value="${v.schedules[0].instagramUrl || ''}">
+        </div>
+        <div>
+          <label>Website (optional)</label>
+          <input type="text" class="ml-venue-website" value="${v.schedules[0].websiteUrl || ''}">
+        </div>
       </div>
-      <button class="add-btn ml-venue-save" type="button" style="margin-top:10px;">Save address</button>
+      <button class="add-btn ml-venue-save" type="button" style="margin-top:10px;">Save venue info</button>
       <p class="auth-note ml-venue-note"></p>
 
       ${v.schedules.map(l=>`
@@ -1398,13 +1639,17 @@ function buildMyLocationPanel(){
     const venueId = card.getAttribute('data-venue-id');
     card.querySelector('.ml-venue-save').addEventListener('click', async ()=>{
       const note = card.querySelector('.ml-venue-note');
-      note.textContent = '';
+      setNote(note, '');
       const address = card.querySelector('.ml-venue-address').value.trim();
-      const { error } = await sb.from('venues').update({ address }).eq('id', venueId);
+      const instagram = card.querySelector('.ml-venue-instagram').value.trim();
+      const website = card.querySelector('.ml-venue-website').value.trim();
+      const { error } = await sb.from('venues').update({
+        address, instagram_url: instagram || null, website_url: website || null
+      }).eq('id', venueId);
       if(error){
-        note.textContent = "Couldn't save: " + error.message;
+        setNote(note, "Couldn't save: " + error.message);
       } else {
-        note.textContent = "Saved.";
+        setNote(note, "Saved.");
         await loadLocations();
         render();
         if(mapInitialized) drawMarkers();
@@ -1416,7 +1661,7 @@ function buildMyLocationPanel(){
     const id = card.getAttribute('data-id');
     card.querySelector('.ml-save').addEventListener('click', async ()=>{
       const note = card.querySelector('.ml-note');
-      note.textContent = '';
+      setNote(note, '');
       const update = {
         price: card.querySelector('.ml-price').value.trim(),
         open_floor: card.querySelector('.ml-openfloor').value.trim(),
@@ -1426,9 +1671,9 @@ function buildMyLocationPanel(){
       };
       const { error } = await sb.from('schedules').update(update).eq('id', id);
       if(error){
-        note.textContent = "Couldn't save: " + error.message;
+        setNote(note, "Couldn't save: " + error.message);
       } else {
-        note.textContent = "Saved.";
+        setNote(note, "Saved.");
         await loadLocations();
         render();
         if(mapInitialized) drawMarkers();
@@ -1496,14 +1741,14 @@ document.getElementById('auth-submit').addEventListener('click', async ()=>{
   const email = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
   const note = document.getElementById('auth-note');
-  note.textContent = '';
-  if(!email || !password){ note.textContent = 'Enter an email and password.'; return; }
+  setNote(note, '');
+  if(!email || !password){ setNote(note, 'Enter an email and password.'); return; }
   const btn = document.getElementById('auth-submit');
   btn.disabled = true;
   if(authMode === 'signin'){
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if(error){
-      note.textContent = error.message;
+      setNote(note, error.message);
     } else {
       currentUser = data.user;
       await loadProfile();
@@ -1516,9 +1761,9 @@ document.getElementById('auth-submit').addEventListener('click', async ()=>{
   } else {
     const { data, error } = await sb.auth.signUp({ email, password });
     if(error){
-      note.textContent = error.message;
+      setNote(note, error.message);
     } else if(data.user && !data.session){
-      note.textContent = "Check your email to confirm your account, then sign in.";
+      setNote(note, "Check your email to confirm your account, then sign in.");
     } else {
       currentUser = data.user;
       await loadProfile();
@@ -1539,10 +1784,91 @@ document.getElementById('auth-logout').addEventListener('click', async ()=>{
   isContributor = false;
   userRole = null;
   myRatings = {};
+  clearPrivilegedUI();
+  if(currentView==='suggestions' || currentView==='myloc'){
+    switchView('list');
+  }
   updateAuthUI();
   render();
   if(mapInitialized) drawMarkers();
 });
+
+document.getElementById('fb-submit').addEventListener('click', async ()=>{
+  const type = document.getElementById('fb-type').value;
+  const message = document.getElementById('fb-message').value.trim();
+  const email = document.getElementById('fb-email').value.trim();
+  const note = document.getElementById('fb-note');
+  setNote(note, '');
+  if(!message){
+    setNote(note, 'Add some details before sending.');
+    return;
+  }
+  const btn = document.getElementById('fb-submit');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  const { error } = await sb.from('feedback').insert({
+    category: type,
+    message,
+    email: email || null,
+    submitted_by: currentUser ? currentUser.id : null
+  });
+  btn.disabled = false;
+  btn.textContent = originalLabel;
+  if(error){
+    setNote(note, "Couldn't send that: " + error.message);
+  } else {
+    setNote(note, 'Thanks — sent to the developer.');
+    document.getElementById('fb-message').value = '';
+    document.getElementById('fb-email').value = '';
+    document.getElementById('fb-type').value = 'bug';
+    if(isDev) loadFeedbackQueue();
+  }
+});
+
+async function loadFeedbackQueue(){
+  const panel = document.getElementById('feedback-review-panel');
+  const list = document.getElementById('feedback-review-list');
+  panel.style.display = 'block';
+  const { data, error } = await sb.from('feedback').select('*').eq('status','open').order('created_at', { ascending:false });
+  if(error){
+    list.innerHTML = `<p class="detail-hint">Couldn't load reports.</p>`;
+    console.error(error);
+    return;
+  }
+  if(!data || data.length===0){
+    list.innerHTML = `<p class="detail-hint">No open reports right now.</p>`;
+    return;
+  }
+  const typeLabels = { bug:'Bug', information:'Information', suggestion:'Suggestion' };
+  list.innerHTML = data.map(f=>`
+    <div class="review-card" data-id="${f.id}">
+      <p class="venue-name">${typeLabels[f.category] || f.category}</p>
+      <p class="venue-meta">${f.message.replace(/</g,'&lt;')}</p>
+      ${f.email ? `<p class="venue-meta"><i>&#9679;</i><strong>Contact:</strong> ${f.email}</p>` : ''}
+      <p class="venue-meta"><i>&#9679;</i><strong>Sent:</strong> ${new Date(f.created_at).toLocaleDateString()}</p>
+      <div class="review-actions">
+        <button class="review-btn approve" data-action="resolve" data-id="${f.id}">Mark Resolved</button>
+        <button class="review-btn reject" data-action="delete" data-id="${f.id}">Delete</button>
+      </div>
+    </div>
+  `).join("");
+  list.querySelectorAll('.review-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.getAttribute('data-id');
+      const action = btn.getAttribute('data-action');
+      btn.closest('.review-card').style.opacity = '0.5';
+      if(action==='resolve'){
+        const { error } = await sb.from('feedback').update({ status:'resolved' }).eq('id', id);
+        if(error) console.error(error);
+      } else {
+        const { error } = await sb.from('feedback').delete().eq('id', id);
+        if(error) console.error(error);
+      }
+      loadFeedbackQueue();
+    });
+  });
+}
 
 async function loadSuggestions(){
   const list = document.getElementById('review-list');
@@ -1579,7 +1905,8 @@ async function loadSuggestions(){
         try{
           const venue = await findOrCreateVenue({
             name: suggestion.name, address: suggestion.address,
-            city: suggestion.city, lat: suggestion.lat, lng: suggestion.lng
+            city: suggestion.city, lat: suggestion.lat, lng: suggestion.lng,
+            instagramUrl: suggestion.instagram_url, websiteUrl: suggestion.website_url
           });
           const { error: insErr } = await sb.from('schedules').insert({
             venue_id: venue.id, name: suggestion.name, lessons: suggestion.lessons,
