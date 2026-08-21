@@ -1019,7 +1019,7 @@
       <button id="btn-suggestions" style="display:none;"><span class="btn-label">Suggestions</span><span class="tab-badge" id="badge-suggestions"></span></button>
       <button id="btn-feedback"><span class="btn-label">Feedback</span><span class="tab-badge" id="badge-feedback"></span></button>
     </div>
-    <div class="legend">
+    <div class="legend" style="display:none;">
       <span><span class="dot swing"></span>Swing</span>
       <span><span class="dot line"></span>Line</span>
     </div>
@@ -1478,7 +1478,7 @@ function renderList(){
           </div>
         </div>
       </div>
-      ${ratioBar(l.swingRatio, l.lineRatio)}
+      <!-- ratio bar removed from UI for now — call ratioBar(l.swingRatio, l.lineRatio) here to restore it -->
     </div>
   `;}).join("");
 
@@ -1687,7 +1687,7 @@ function showDetail(l, groupPt){
           <p class="venue-meta"><i>&#9679;</i><strong>Open floor:</strong> ${l.openFloor}</p>
           <p class="venue-meta"><i>&#9679;</i><strong>Price:</strong> ${l.price}</p>
           ${socialLinks(l)}
-          ${ratioBar(l.swingRatio, l.lineRatio)}
+          <!-- ratio bar removed from UI for now — call ratioBar(l.swingRatio, l.lineRatio) here to restore it -->
           <div class="rating-row">
             <div class="ratio-label">Rating</div>
             ${starDisplay(rs.avg, rs.count)}
