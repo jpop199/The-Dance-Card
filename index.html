@@ -617,7 +617,7 @@
     gap:8px;
   }
   .info-body .directions-link{align-self:flex-start; margin-top:8px;}
-  .social-row{display:flex; gap:10px; margin-top:4px;}
+  .social-row{display:flex; flex-wrap:wrap; gap:10px; margin-top:4px;}
   .social-link{
     font-family:'Oswald',sans-serif;
     font-size:11.5px;
@@ -628,6 +628,7 @@
     border-radius:999px;
     padding:5px 12px;
     text-decoration:none;
+    white-space:nowrap;
     transition:background-color .15s ease, color .15s ease, border-color .15s ease;
   }
   .social-link:hover{background:var(--brass-bright); border-color:var(--brass-bright); color:var(--ink);}
@@ -1349,10 +1350,29 @@ function normalizeUrl(u){
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
+function instagramHandle(url){
+  try{
+    const u = new URL(normalizeUrl(url));
+    const seg = u.pathname.split('/').filter(Boolean)[0];
+    return seg ? '@' + seg : 'Instagram';
+  }catch(e){
+    return 'Instagram';
+  }
+}
+
+function displayDomain(url){
+  try{
+    const u = new URL(normalizeUrl(url));
+    return u.hostname.replace(/^www\./,'');
+  }catch(e){
+    return 'Website';
+  }
+}
+
 function socialLinks(l){
   const links = [];
-  if(l.instagramUrl) links.push(`<a class="social-link" href="${normalizeUrl(l.instagramUrl)}" target="_blank" rel="noopener">Instagram</a>`);
-  if(l.websiteUrl) links.push(`<a class="social-link" href="${normalizeUrl(l.websiteUrl)}" target="_blank" rel="noopener">Website</a>`);
+  if(l.instagramUrl) links.push(`<a class="social-link" href="${normalizeUrl(l.instagramUrl)}" target="_blank" rel="noopener">${instagramHandle(l.instagramUrl)}</a>`);
+  if(l.websiteUrl) links.push(`<a class="social-link" href="${normalizeUrl(l.websiteUrl)}" target="_blank" rel="noopener">${displayDomain(l.websiteUrl)}</a>`);
   if(links.length===0) return '';
   return `<div class="social-row">${links.join('')}</div>`;
 }
