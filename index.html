@@ -271,6 +271,64 @@
     color:var(--brass);
     margin:0 0 10px;
   }
+  .song-columns{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:16px;
+    margin-top:26px;
+  }
+  .song-column-heading{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:18px;
+    letter-spacing:.03em;
+    margin:0 0 10px;
+    padding-bottom:6px;
+    border-bottom:1px solid var(--line-hair);
+  }
+  .song-column-heading.know{color:var(--brass-bright);}
+  .song-column-heading.working{color:var(--parchment-dim);}
+  .song-column-heading.dont{color:var(--oxblood-bright);}
+  .song-card{
+    background:var(--ink-2);
+    border:1px solid var(--line-hair);
+    border-radius:4px;
+    padding:10px 12px;
+    margin-bottom:8px;
+  }
+  .song-card .song-title{
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    color:var(--parchment);
+  }
+  .song-card .song-artist{
+    font-size:11.5px;
+    color:var(--parchment-dim);
+    margin-top:2px;
+  }
+  .song-card .song-actions{
+    display:flex;
+    gap:6px;
+    margin-top:8px;
+    flex-wrap:wrap;
+  }
+  .song-move-btn{
+    font-family:'Oswald',sans-serif;
+    font-size:10px;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+    background:var(--ink);
+    color:var(--parchment-dim);
+    border:1px solid var(--line-hair);
+    border-radius:3px;
+    padding:4px 8px;
+    cursor:pointer;
+  }
+  .song-move-btn:hover{border-color:var(--brass);}
+  .song-move-btn.delete:hover{border-color:var(--oxblood-bright); color:var(--oxblood-bright);}
+  @media (max-width:640px){
+    .song-columns{grid-template-columns:1fr;}
+  }
   .review-card{
     background:var(--ink-2);
     border:1px solid var(--line-hair);
@@ -589,6 +647,19 @@
   }
   .acc-block .card-header:hover .expand-btn{transform:scale(1.06);}
   .acc-block.expanded .expand-btn{background:var(--brass-bright);}
+  .favorite-btn{
+    background:none;
+    border:none;
+    font-size:20px;
+    line-height:1;
+    color:var(--parchment-dim);
+    cursor:pointer;
+    padding:2px;
+    transition:transform .15s ease, color .15s ease;
+    flex-shrink:0;
+  }
+  .favorite-btn:hover{transform:scale(1.15); color:var(--oxblood-bright);}
+  .favorite-btn.favorited{color:var(--oxblood-bright);}
   .chevron{
     width:9px;
     height:9px;
@@ -1019,6 +1090,7 @@
       <button id="btn-myloc" style="display:none;"><span class="btn-label">My Location</span></button>
       <button id="btn-suggestions" style="display:none;"><span class="btn-label">Suggestions</span><span class="tab-badge" id="badge-suggestions"></span></button>
       <button id="btn-feedback"><span class="btn-label">Feedback</span><span class="tab-badge" id="badge-feedback"></span></button>
+      <button id="btn-songs"><span class="btn-label">Songs</span></button>
     </div>
     <div class="legend" style="display:none;">
       <span><span class="dot swing"></span>Swing</span>
@@ -1026,12 +1098,13 @@
     </div>
   </div>
 
-  <div class="search-bar">
+  <div class="search-bar" id="search-bar">
     <div class="search-input-wrap">
       <input type="text" id="search-input" placeholder="Search by venue, city, or address...">
       <button id="search-clear" type="button" aria-label="Clear search" style="display:none;">&times;</button>
     </div>
     <button id="near-me-btn" class="near-me-btn" type="button">&#128205; Near Me</button>
+    <button id="favorites-only-btn" class="near-me-btn" type="button">&#9829; Favorites</button>
     <div class="search-filters">
       <!-- filter chips removed from UI for now — matchesSearch() filter logic,
            CSS, and click-wiring below are still intact if these get re-added.
@@ -1106,6 +1179,51 @@
     <div class="review-panel" id="feedback-review-panel" style="display:none;">
       <h3>Open Reports</h3>
       <div id="feedback-review-list"></div>
+    </div>
+  </div>
+
+  <div id="view-songs" style="display:none;">
+    <h2 class="day-heading">Line Dance Songs</h2>
+    <div id="songs-signed-out" style="display:none;">
+      <p class="suggestion-note">Sign in to start tracking which line dance songs you know, which you're working on, and which you don't know yet.</p>
+    </div>
+    <div id="songs-signed-in" style="display:none;">
+      <p class="suggestion-note">Keep your own private list — nobody else can see this but you.</p>
+      <div class="form-grid">
+        <div>
+          <label>Song name</label>
+          <input type="text" id="song-name" placeholder="e.g. Copperhead Road">
+        </div>
+        <div>
+          <label>Artist (optional)</label>
+          <input type="text" id="song-artist" placeholder="e.g. Steve Earle">
+        </div>
+        <div class="full">
+          <label>Status</label>
+          <select id="song-status">
+            <option value="know">Know it</option>
+            <option value="working_on" selected>Working on it</option>
+            <option value="dont_know">Don't know it</option>
+          </select>
+        </div>
+      </div>
+      <button class="add-btn" id="song-add-btn" type="button">Add Song</button>
+      <p class="auth-note" id="song-note"></p>
+
+      <div class="song-columns">
+        <div class="song-column">
+          <h3 class="song-column-heading know">Know It</h3>
+          <div id="songs-list-know"></div>
+        </div>
+        <div class="song-column">
+          <h3 class="song-column-heading working">Working On It</h3>
+          <div id="songs-list-working"></div>
+        </div>
+        <div class="song-column">
+          <h3 class="song-column-heading dont">Don't Know It</h3>
+          <div id="songs-list-dont"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1232,6 +1350,33 @@ async function loadMyRatings(){
   (data || []).forEach(r=>{ myRatings[r.schedule_id] = r.stars; });
 }
 
+async function loadFavorites(){
+  favoriteIds = new Set();
+  if(!currentUser) return;
+  const { data, error } = await sb.from('favorites').select('schedule_id').eq('user_id', currentUser.id);
+  if(error){ console.error('Failed to load favorites:', describeSupabaseError(error), error); return; }
+  (data || []).forEach(f=> favoriteIds.add(f.schedule_id));
+}
+
+async function toggleFavorite(locationId){
+  if(!currentUser) return;
+  if(favoriteIds.has(locationId)){
+    const { error } = await sb.from('favorites').delete().eq('user_id', currentUser.id).eq('schedule_id', locationId);
+    if(error){ console.error(error); return; }
+    favoriteIds.delete(locationId);
+  } else {
+    const { error } = await sb.from('favorites').insert({ user_id: currentUser.id, schedule_id: locationId });
+    if(error){ console.error(error); return; }
+    favoriteIds.add(locationId);
+  }
+}
+
+function favoriteButton(locationId){
+  if(!currentUser) return '';
+  const isFav = favoriteIds.has(locationId);
+  return `<button type="button" class="favorite-btn${isFav ? ' favorited' : ''}" data-loc="${locationId}" aria-label="${isFav ? 'Remove from favorites' : 'Add to favorites'}">${isFav ? '&#9829;' : '&#9825;'}</button>`;
+}
+
 function starDisplay(avg, count){
   if(!count) return `<span class="stars-empty">No ratings yet</span>`;
   const rounded = Math.round(avg * 2) / 2;
@@ -1286,11 +1431,13 @@ const btnMap = document.getElementById('btn-map');
 const btnMyLoc = document.getElementById('btn-myloc');
 const btnSuggestions = document.getElementById('btn-suggestions');
 const btnFeedback = document.getElementById('btn-feedback');
+const btnSongs = document.getElementById('btn-songs');
 const viewList = document.getElementById('view-list');
 const viewMap = document.getElementById('view-map');
 const viewMyLoc = document.getElementById('view-mylocation');
 const viewSuggestions = document.getElementById('view-suggestions');
 const viewFeedback = document.getElementById('view-feedback');
+const viewSongs = document.getElementById('view-songs');
 const detailCard = document.getElementById('detail-card');
 const usSvg = d3.select('#us-svg');
 const projection = d3.geoAlbersUsa().scale(1280).translate([480,300]);
@@ -1403,13 +1550,15 @@ let searchQuery = '';
 let searchFilter = 'all';
 let nearMeActive = false;
 let userCoords = null;
+let favoritesOnly = false;
+let favoriteIds = new Set();
 
 function isSearchActive(){
   return searchQuery.trim().length > 0 || searchFilter !== 'all';
 }
 
 function isCrossDayMode(){
-  return isSearchActive() || nearMeActive;
+  return isSearchActive() || nearMeActive || favoritesOnly;
 }
 
 function matchesSearch(l){
@@ -1421,6 +1570,7 @@ function matchesSearch(l){
   if(searchFilter==='swing' && !(l.swingRatio > l.lineRatio)) return false;
   if(searchFilter==='line' && !(l.lineRatio > l.swingRatio)) return false;
   if(searchFilter==='mixed' && !(l.swingRatio === l.lineRatio)) return false;
+  if(favoritesOnly && !favoriteIds.has(l.id)) return false;
   return true;
 }
 
@@ -1454,15 +1604,21 @@ function renderList(){
         return a._distance - b._distance;
       });
     }
-    dayHeading.textContent = (nearMeActive && !isSearchActive()) ? `Nearby Venues (${items.length})` : `Search Results (${items.length})`;
+    let heading;
+    if(favoritesOnly && !isSearchActive() && !nearMeActive) heading = `My Favorites (${items.length})`;
+    else if(nearMeActive && !isSearchActive()) heading = `Nearby Venues (${items.length})`;
+    else heading = `Search Results (${items.length})`;
+    dayHeading.textContent = heading;
   } else {
     items = locations.filter(l=>l.days.includes(DAYS[currentDay]));
     dayHeading.textContent = DAYS[currentDay];
   }
 
   if(items.length===0){
+    let emptyMsg = 'No venues match that search.';
+    if(favoritesOnly && !isSearchActive() && !nearMeActive) emptyMsg = "You haven't favorited any venues yet — tap the heart on a venue to save it here.";
     cardsEl.innerHTML = crossDay
-      ? `<p class="empty">No venues match that search.</p>`
+      ? `<p class="empty">${emptyMsg}</p>`
       : `<p class="empty">No floors on the card for ${DAYS[currentDay]} yet. Add one below.</p>`;
     return;
   }
@@ -1481,6 +1637,7 @@ function renderList(){
           </span>
           <span class="header-right">
             <span class="summary-meta">${starDisplay(rs.avg, rs.count)}</span>
+            ${favoriteButton(l.id)}
             <span class="expand-btn"><span class="chevron"></span></span>
           </span>
         </div>
@@ -1509,6 +1666,14 @@ function renderList(){
       const val = parseInt(btn.getAttribute('data-val'));
       await submitRating(locId, val);
       renderList();
+    });
+  });
+  cardsEl.querySelectorAll('.favorite-btn').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const locId = btn.getAttribute('data-loc');
+      await toggleFavorite(locId);
+      if(favoritesOnly){ refreshAfterSearchChange(); } else { renderList(); }
     });
   });
   initAccordions(cardsEl);
@@ -1696,6 +1861,7 @@ function showDetail(l, groupPt){
         </span>
         <span class="header-right">
           <span class="summary-meta">${starDisplay(rs.avg, rs.count)}</span>
+          ${favoriteButton(l.id)}
           <span class="expand-btn"><span class="chevron"></span></span>
         </span>
       </div>
@@ -1730,6 +1896,14 @@ function showDetail(l, groupPt){
       const locId = btn.getAttribute('data-loc');
       const val = parseInt(btn.getAttribute('data-val'));
       await submitRating(locId, val);
+      showDetail(l, groupPt);
+    });
+  });
+  detailCard.querySelectorAll('.favorite-btn').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const locId = btn.getAttribute('data-loc');
+      await toggleFavorite(locId);
       showDetail(l, groupPt);
     });
   });
@@ -1776,6 +1950,10 @@ function updateRibbonVisibility(){
   const wrap = document.getElementById('ribbon-wrap');
   const visible = currentView==='list' && !isCrossDayMode();
   if(wrap) wrap.style.display = visible ? 'block' : 'none';
+
+  const searchBar = document.getElementById('search-bar');
+  const searchVisible = currentView==='list' || currentView==='map';
+  if(searchBar) searchBar.style.display = searchVisible ? 'flex' : 'none';
 }
 
 function render(){
@@ -1787,12 +1965,15 @@ function clearSearchState(){
   searchQuery = '';
   searchFilter = 'all';
   nearMeActive = false;
+  favoritesOnly = false;
   const input = document.getElementById('search-input');
   if(input) input.value = '';
   const clearBtn = document.getElementById('search-clear');
   if(clearBtn) clearBtn.style.display = 'none';
   const nearBtn = document.getElementById('near-me-btn');
   if(nearBtn){ nearBtn.classList.remove('active'); nearBtn.innerHTML = '&#128205; Near Me'; }
+  const favBtn = document.getElementById('favorites-only-btn');
+  if(favBtn) favBtn.classList.remove('active');
   document.querySelectorAll('.filter-chip').forEach(chip=>{
     chip.classList.toggle('active', chip.getAttribute('data-filter')==='all');
   });
@@ -1860,6 +2041,17 @@ nearMeBtn.addEventListener('click', ()=>{
   );
 });
 
+const favoritesOnlyBtn = document.getElementById('favorites-only-btn');
+favoritesOnlyBtn.addEventListener('click', ()=>{
+  if(!currentUser){
+    alert('Sign in to save and view favorites.');
+    return;
+  }
+  favoritesOnly = !favoritesOnly;
+  favoritesOnlyBtn.classList.toggle('active', favoritesOnly);
+  refreshAfterSearchChange();
+});
+
 function switchView(view){
   if(view===currentView) return;
   const views = {
@@ -1867,7 +2059,8 @@ function switchView(view){
     map: { el: viewMap, display: 'grid' },
     myloc: { el: viewMyLoc, display: 'block' },
     suggestions: { el: viewSuggestions, display: 'block' },
-    feedback: { el: viewFeedback, display: 'block' }
+    feedback: { el: viewFeedback, display: 'block' },
+    songs: { el: viewSongs, display: 'block' }
   };
   const prevEl = views[currentView] ? views[currentView].el : null;
   currentView = view;
@@ -1876,12 +2069,14 @@ function switchView(view){
   btnMyLoc.classList.toggle('active', view==='myloc');
   btnSuggestions.classList.toggle('active', view==='suggestions');
   btnFeedback.classList.toggle('active', view==='feedback');
+  btnSongs.classList.toggle('active', view==='songs');
   crossfadeView(prevEl, views[view].el, views[view].display);
   updateRibbonVisibility();
   if(view==='map') initMap();
   if(view==='myloc') buildMyLocationPanel();
   if(view==='suggestions' && isDev) loadSuggestions();
   if(view==='feedback' && isDev) loadFeedbackQueue();
+  if(view==='songs') updateSongsView();
 }
 
 btnList.addEventListener('click', ()=> switchView('list'));
@@ -1889,6 +2084,7 @@ btnMap.addEventListener('click', ()=> switchView('map'));
 btnSuggestions.addEventListener('click', ()=> switchView('suggestions'));
 btnFeedback.addEventListener('click', ()=> switchView('feedback'));
 btnMyLoc.addEventListener('click', ()=> switchView('myloc'));
+btnSongs.addEventListener('click', ()=> switchView('songs'));
 
 const fDays = document.getElementById('f-days');
 DAYS.forEach(d=>{
@@ -2031,6 +2227,10 @@ function clearPrivilegedUI(){
   if(suggBadge) suggBadge.textContent = '';
   const fbBadge = document.getElementById('badge-feedback');
   if(fbBadge) fbBadge.textContent = '';
+  ['songs-list-know','songs-list-working','songs-list-dont'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = '';
+  });
 }
 
 async function loadPendingCounts(){
@@ -2205,6 +2405,7 @@ function updateAuthUI(){
     signedIn.style.display = 'none';
   }
   updateRoleUI();
+  if(currentView==='songs') updateSongsView();
 }
 
 async function loadProfile(){
@@ -2223,6 +2424,7 @@ async function checkSession(){
     await loadProfile();
   }
   await loadMyRatings();
+  await loadFavorites();
   updateAuthUI();
 }
 
@@ -2260,6 +2462,7 @@ document.getElementById('auth-submit').addEventListener('click', async ()=>{
       currentUser = data.user;
       await loadProfile();
       await loadMyRatings();
+  await loadFavorites();
       updateAuthUI();
       render();
       if(mapInitialized) drawMarkers();
@@ -2275,6 +2478,7 @@ document.getElementById('auth-submit').addEventListener('click', async ()=>{
       currentUser = data.user;
       await loadProfile();
       await loadMyRatings();
+  await loadFavorites();
       updateAuthUI();
       render();
       if(mapInitialized) drawMarkers();
@@ -2291,6 +2495,10 @@ document.getElementById('auth-logout').addEventListener('click', async ()=>{
   isContributor = false;
   userRole = null;
   myRatings = {};
+  favoriteIds = new Set();
+  favoritesOnly = false;
+  const favBtn = document.getElementById('favorites-only-btn');
+  if(favBtn) favBtn.classList.remove('active');
   clearPrivilegedUI();
   if(currentView==='suggestions' || currentView==='myloc'){
     switchView('list');
@@ -2330,6 +2538,118 @@ document.getElementById('fb-submit').addEventListener('click', async ()=>{
     document.getElementById('fb-email').value = '';
     document.getElementById('fb-type').value = 'bug';
     if(isDev){ loadFeedbackQueue(); loadPendingCounts(); }
+  }
+});
+
+function updateSongsView(){
+  const signedOutBox = document.getElementById('songs-signed-out');
+  const signedInBox = document.getElementById('songs-signed-in');
+  if(currentUser){
+    signedOutBox.style.display = 'none';
+    signedInBox.style.display = 'block';
+    loadSongs();
+  } else {
+    signedOutBox.style.display = 'block';
+    signedInBox.style.display = 'none';
+  }
+}
+
+async function loadSongs(){
+  if(!currentUser) return;
+  const { data, error } = await sb.from('song_progress')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('song_name');
+  if(error){
+    console.error('Failed to load songs:', describeSupabaseError(error), error);
+    return;
+  }
+  renderSongColumns(data || []);
+}
+
+function renderSongColumns(songs){
+  const groups = { know: [], working_on: [], dont_know: [] };
+  songs.forEach(s=>{ (groups[s.status] || groups.working_on).push(s); });
+
+  const columnMap = {
+    know: document.getElementById('songs-list-know'),
+    working_on: document.getElementById('songs-list-working'),
+    dont_know: document.getElementById('songs-list-dont')
+  };
+
+  Object.keys(columnMap).forEach(status=>{
+    const el = columnMap[status];
+    const list = groups[status];
+    if(list.length===0){
+      el.innerHTML = `<p class="detail-hint">No songs here yet.</p>`;
+      return;
+    }
+    el.innerHTML = list.map(s=>{
+      const otherStatuses = ['know','working_on','dont_know'].filter(st=>st!==status);
+      const labelMap = { know:'Know it', working_on:'Working on it', dont_know:"Don't know it" };
+      const moveButtons = otherStatuses.map(st=>
+        `<button class="song-move-btn" data-action="move" data-id="${s.id}" data-status="${st}">${labelMap[st]}</button>`
+      ).join('');
+      return `
+        <div class="song-card" data-id="${s.id}">
+          <div class="song-title">${s.song_name}</div>
+          ${s.artist ? `<div class="song-artist">${s.artist}</div>` : ''}
+          <div class="song-actions">
+            ${moveButtons}
+            <button class="song-move-btn delete" data-action="delete" data-id="${s.id}">Remove</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  });
+
+  document.querySelectorAll('.song-move-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.getAttribute('data-id');
+      const action = btn.getAttribute('data-action');
+      if(action==='move'){
+        const status = btn.getAttribute('data-status');
+        const { error } = await sb.from('song_progress').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+        if(error) console.error(error);
+      } else {
+        const { error } = await sb.from('song_progress').delete().eq('id', id);
+        if(error) console.error(error);
+      }
+      loadSongs();
+    });
+  });
+}
+
+document.getElementById('song-add-btn').addEventListener('click', async ()=>{
+  const name = document.getElementById('song-name').value.trim();
+  const artist = document.getElementById('song-artist').value.trim();
+  const status = document.getElementById('song-status').value;
+  const note = document.getElementById('song-note');
+  if(!name){
+    setNote(note, 'Give the song a name first.', 'error');
+    return;
+  }
+  if(!currentUser){
+    setNote(note, 'You need to be signed in to save songs.', 'error');
+    return;
+  }
+  const btn = document.getElementById('song-add-btn');
+  btn.disabled = true;
+  const { error } = await sb.from('song_progress').insert({
+    user_id: currentUser.id,
+    song_name: name,
+    artist: artist || null,
+    status
+  });
+  btn.disabled = false;
+  if(error){
+    setNote(note, "Couldn't save that: " + error.message, 'error');
+  } else {
+    setNote(note, 'Added.', 'success');
+    document.getElementById('song-name').value = '';
+    document.getElementById('song-artist').value = '';
+    document.getElementById('song-status').value = 'working_on';
+    loadSongs();
   }
 });
 
