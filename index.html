@@ -271,6 +271,83 @@
     color:var(--brass);
     margin:0 0 10px;
   }
+  .song-search-wrap{position:relative;}
+  .song-search-results{
+    position:absolute;
+    top:100%;
+    left:0;
+    right:0;
+    margin-top:4px;
+    background:var(--ink);
+    border:1px solid var(--brass);
+    border-radius:4px;
+    max-height:280px;
+    overflow-y:auto;
+    z-index:10;
+    box-shadow:0 8px 20px rgba(0,0,0,0.45);
+  }
+  .song-result{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 10px;
+    cursor:pointer;
+    border-bottom:1px solid var(--line-hair);
+  }
+  .song-result:last-child{border-bottom:none;}
+  .song-result:hover{background:var(--ink-2);}
+  .song-result img{
+    width:36px;
+    height:36px;
+    border-radius:3px;
+    flex-shrink:0;
+    object-fit:cover;
+  }
+  .song-result-text{min-width:0;}
+  .song-result-title{
+    font-family:'Oswald',sans-serif;
+    font-size:13px;
+    color:var(--parchment);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .song-result-artist{
+    font-size:11.5px;
+    color:var(--parchment-dim);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .song-search-status{
+    padding:10px;
+    font-size:12.5px;
+    color:var(--parchment-dim);
+    font-style:italic;
+  }
+  .song-selected-chip{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--ink-2);
+    border:1px solid var(--brass);
+    border-radius:4px;
+    padding:8px 10px;
+  }
+  .song-selected-chip img{width:36px; height:36px; border-radius:3px; flex-shrink:0; object-fit:cover;}
+  .song-selected-chip .song-selected-text{flex:1; min-width:0;}
+  .song-selected-chip .song-selected-title{font-family:'Oswald',sans-serif; font-size:13.5px; color:var(--parchment); font-weight:600;}
+  .song-selected-chip .song-selected-artist{font-size:11.5px; color:var(--parchment-dim);}
+  .song-selected-clear{
+    background:none;
+    border:none;
+    color:var(--parchment-dim);
+    font-size:18px;
+    cursor:pointer;
+    padding:2px 6px;
+    flex-shrink:0;
+  }
+  .song-selected-clear:hover{color:var(--oxblood-bright);}
   .song-columns{
     display:grid;
     grid-template-columns:repeat(3, 1fr);
@@ -1063,7 +1140,7 @@
 
   <div class="auth-bar" id="auth-bar">
     <div class="auth-signedout" id="auth-signedout">
-      <button class="auth-link" id="auth-open-login">Developer sign in</button>
+      <button class="auth-link" id="auth-open-login">Sign in</button>
     </div>
     <div class="auth-signedin" id="auth-signedin" style="display:none;">
       <span class="auth-status" id="auth-status"></span>
@@ -1190,13 +1267,13 @@
     <div id="songs-signed-in" style="display:none;">
       <p class="suggestion-note">Keep your own private list — nobody else can see this but you.</p>
       <div class="form-grid">
-        <div>
-          <label>Song name</label>
-          <input type="text" id="song-name" placeholder="e.g. Copperhead Road">
+        <div class="full song-search-wrap">
+          <label>Search for a song</label>
+          <input type="text" id="song-search-input" placeholder="Start typing a song or artist..." autocomplete="off">
+          <div class="song-search-results" id="song-search-results" style="display:none;"></div>
         </div>
-        <div>
-          <label>Artist (optional)</label>
-          <input type="text" id="song-artist" placeholder="e.g. Steve Earle">
+        <div class="full" id="song-selected-box" style="display:none;">
+          <div class="song-selected-chip" id="song-selected-chip"></div>
         </div>
         <div class="full">
           <label>Status</label>
@@ -1207,7 +1284,7 @@
           </select>
         </div>
       </div>
-      <button class="add-btn" id="song-add-btn" type="button">Add Song</button>
+      <button class="add-btn" id="song-add-btn" type="button" disabled>Add Song</button>
       <p class="auth-note" id="song-note"></p>
 
       <div class="song-columns">
@@ -2620,13 +2697,110 @@ function renderSongColumns(songs){
   });
 }
 
+let selectedSong = null; // {name, artist, artwork}
+let songSearchAbort = null;
+let songSearchDebounce = null;
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderSelectedSong(){
+  const box = document.getElementById('song-selected-box');
+  const chip = document.getElementById('song-selected-chip');
+  const addBtn = document.getElementById('song-add-btn');
+  if(!selectedSong){
+    box.style.display = 'none';
+    chip.innerHTML = '';
+    addBtn.disabled = true;
+    return;
+  }
+  box.style.display = 'block';
+  addBtn.disabled = false;
+  chip.innerHTML = `
+    ${selectedSong.artwork ? `<img src="${selectedSong.artwork}" alt="">` : ''}
+    <div class="song-selected-text">
+      <div class="song-selected-title">${escapeHtml(selectedSong.name)}</div>
+      ${selectedSong.artist ? `<div class="song-selected-artist">${escapeHtml(selectedSong.artist)}</div>` : ''}
+    </div>
+    <button type="button" class="song-selected-clear" id="song-selected-clear" aria-label="Clear selection">&times;</button>
+  `;
+  document.getElementById('song-selected-clear').addEventListener('click', ()=>{
+    selectedSong = null;
+    renderSelectedSong();
+  });
+}
+
+async function runSongSearch(query){
+  const resultsBox = document.getElementById('song-search-results');
+  if(!query){
+    resultsBox.style.display = 'none';
+    resultsBox.innerHTML = '';
+    return;
+  }
+  resultsBox.style.display = 'block';
+  resultsBox.innerHTML = `<div class="song-search-status">Searching…</div>`;
+  if(songSearchAbort) songSearchAbort.abort();
+  songSearchAbort = new AbortController();
+  try{
+    const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=8`;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(itunesUrl)}`;
+    const res = await fetch(proxyUrl, { signal: songSearchAbort.signal });
+    const data = await res.json();
+    const results = (data && data.results) || [];
+    if(results.length===0){
+      resultsBox.innerHTML = `<div class="song-search-status">No matches — you can still add "${escapeHtml(query)}" manually below.</div>`;
+      return;
+    }
+    resultsBox.innerHTML = results.map((r,i)=>`
+      <div class="song-result" data-idx="${i}">
+        ${r.artworkUrl60 ? `<img src="${r.artworkUrl60}" alt="">` : ''}
+        <div class="song-result-text">
+          <div class="song-result-title">${escapeHtml(r.trackName)}</div>
+          <div class="song-result-artist">${escapeHtml(r.artistName)}</div>
+        </div>
+      </div>
+    `).join('');
+    resultsBox.querySelectorAll('.song-result').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const idx = parseInt(el.getAttribute('data-idx'));
+        const r = results[idx];
+        selectedSong = { name: r.trackName, artist: r.artistName, artwork: r.artworkUrl60 };
+        renderSelectedSong();
+        resultsBox.style.display = 'none';
+        resultsBox.innerHTML = '';
+        document.getElementById('song-search-input').value = '';
+      });
+    });
+  }catch(e){
+    if(e.name === 'AbortError') return;
+    console.error('Song search failed', e);
+    resultsBox.innerHTML = `<div class="song-search-status">Couldn't search right now — you can still add "${escapeHtml(query)}" manually below.</div>`;
+  }
+}
+
+const songSearchInput = document.getElementById('song-search-input');
+songSearchInput.addEventListener('input', ()=>{
+  const query = songSearchInput.value.trim();
+  selectedSong = null;
+  renderSelectedSong();
+  clearTimeout(songSearchDebounce);
+  songSearchDebounce = setTimeout(()=> runSongSearch(query), 350);
+});
+document.addEventListener('click', (e)=>{
+  const wrap = document.querySelector('.song-search-wrap');
+  if(wrap && !wrap.contains(e.target)){
+    document.getElementById('song-search-results').style.display = 'none';
+  }
+});
+
 document.getElementById('song-add-btn').addEventListener('click', async ()=>{
-  const name = document.getElementById('song-name').value.trim();
-  const artist = document.getElementById('song-artist').value.trim();
   const status = document.getElementById('song-status').value;
   const note = document.getElementById('song-note');
-  if(!name){
-    setNote(note, 'Give the song a name first.', 'error');
+  const typed = songSearchInput.value.trim();
+  const song = selectedSong || (typed ? { name: typed, artist: null } : null);
+  if(!song){
+    setNote(note, 'Search for a song and select it, or type a name first.', 'error');
     return;
   }
   if(!currentUser){
@@ -2637,17 +2811,18 @@ document.getElementById('song-add-btn').addEventListener('click', async ()=>{
   btn.disabled = true;
   const { error } = await sb.from('song_progress').insert({
     user_id: currentUser.id,
-    song_name: name,
-    artist: artist || null,
+    song_name: song.name,
+    artist: song.artist || null,
     status
   });
-  btn.disabled = false;
   if(error){
     setNote(note, "Couldn't save that: " + error.message, 'error');
+    btn.disabled = false;
   } else {
     setNote(note, 'Added.', 'success');
-    document.getElementById('song-name').value = '';
-    document.getElementById('song-artist').value = '';
+    selectedSong = null;
+    renderSelectedSong();
+    songSearchInput.value = '';
     document.getElementById('song-status').value = 'working_on';
     loadSongs();
   }

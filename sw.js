@@ -34,7 +34,9 @@ const NETWORK_ONLY_HOSTS = [
   'nominatim.openstreetmap.org',
   'maps.google.com',
   'maps.apple.com',
-  'google.com'
+  'google.com',
+  'allorigins.win',
+  'itunes.apple.com'
 ];
 
 self.addEventListener('fetch', (event) => {
