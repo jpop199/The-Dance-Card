@@ -1269,7 +1269,7 @@
       <div class="form-grid">
         <div class="full song-search-wrap">
           <label>Search for a song</label>
-          <input type="text" id="song-search-input" placeholder="Start typing a song or artist..." autocomplete="off">
+          <input type="text" id="song-search-input" placeholder="Search for a song, or just type your own to add it manually" autocomplete="off">
           <div class="song-search-results" id="song-search-results" style="display:none;"></div>
         </div>
         <div class="full" id="song-selected-box" style="display:none;">
@@ -2731,6 +2731,25 @@ function renderSelectedSong(){
   });
 }
 
+async function fetchViaProxies(targetUrl, signal){
+  const proxies = [
+    (u)=> `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+    (u)=> `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`
+  ];
+  let lastError = null;
+  for(const buildProxyUrl of proxies){
+    try{
+      const res = await fetch(buildProxyUrl(targetUrl), { signal });
+      if(!res.ok) throw new Error(`Proxy returned ${res.status}`);
+      return await res.json();
+    }catch(e){
+      if(e.name === 'AbortError') throw e;
+      lastError = e;
+    }
+  }
+  throw lastError || new Error('All proxies failed');
+}
+
 async function runSongSearch(query){
   const resultsBox = document.getElementById('song-search-results');
   if(!query){
@@ -2744,9 +2763,7 @@ async function runSongSearch(query){
   songSearchAbort = new AbortController();
   try{
     const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=8`;
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(itunesUrl)}`;
-    const res = await fetch(proxyUrl, { signal: songSearchAbort.signal });
-    const data = await res.json();
+    const data = await fetchViaProxies(itunesUrl, songSearchAbort.signal);
     const results = (data && data.results) || [];
     if(results.length===0){
       resultsBox.innerHTML = `<div class="song-search-status">No matches — you can still add "${escapeHtml(query)}" manually below.</div>`;
@@ -2784,6 +2801,7 @@ songSearchInput.addEventListener('input', ()=>{
   const query = songSearchInput.value.trim();
   selectedSong = null;
   renderSelectedSong();
+  document.getElementById('song-add-btn').disabled = query.length===0;
   clearTimeout(songSearchDebounce);
   songSearchDebounce = setTimeout(()=> runSongSearch(query), 350);
 });

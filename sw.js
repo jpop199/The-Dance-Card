@@ -36,6 +36,7 @@ const NETWORK_ONLY_HOSTS = [
   'maps.apple.com',
   'google.com',
   'allorigins.win',
+  'corsproxy.io',
   'itunes.apple.com'
 ];
 
