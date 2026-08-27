@@ -271,7 +271,57 @@
     color:var(--brass);
     margin:0 0 10px;
   }
+  .songs-form-section{margin-bottom:16px;}
   .song-search-wrap{position:relative;}
+  .song-search-wrap label{
+    display:block;
+    font-family:'Oswald',sans-serif;
+    font-size:10.5px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--parchment-dim);
+    margin-bottom:6px;
+  }
+  .song-manual-details{margin-bottom:16px;}
+  .song-manual-details summary{
+    cursor:pointer;
+    font-family:'Oswald',sans-serif;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    font-size:12px;
+    color:var(--brass-bright);
+    list-style:none;
+  }
+  .song-manual-details summary::-webkit-details-marker{display:none;}
+  .song-manual-details summary::before{content:"+ ";}
+  .song-manual-details[open] summary::before{content:"– ";}
+  .song-manual-details .form-grid{margin-top:14px;}
+  .song-search-wrap input{
+    width:100%;
+    background:var(--ink-2);
+    border:1px solid var(--line-hair);
+    color:var(--parchment);
+    font-family:'Lora',serif;
+    font-size:13.5px;
+    padding:9px 32px 9px 12px;
+    border-radius:999px;
+  }
+  .song-search-wrap input:focus{outline:1px solid var(--brass); border-color:var(--brass);}
+  .song-search-wrap input::placeholder{color:var(--parchment-dim);}
+  #song-search-clear{
+    position:absolute;
+    right:8px;
+    top:50%;
+    transform:translateY(-50%);
+    background:none;
+    border:none;
+    color:var(--parchment-dim);
+    font-size:18px;
+    line-height:1;
+    cursor:pointer;
+    padding:2px 4px;
+  }
+  #song-search-clear:hover{color:var(--parchment);}
   .song-search-results{
     position:absolute;
     top:100%;
@@ -296,13 +346,6 @@
   }
   .song-result:last-child{border-bottom:none;}
   .song-result:hover{background:var(--ink-2);}
-  .song-result img{
-    width:36px;
-    height:36px;
-    border-radius:3px;
-    flex-shrink:0;
-    object-fit:cover;
-  }
   .song-result-text{min-width:0;}
   .song-result-title{
     font-family:'Oswald',sans-serif;
@@ -334,7 +377,6 @@
     border-radius:4px;
     padding:8px 10px;
   }
-  .song-selected-chip img{width:36px; height:36px; border-radius:3px; flex-shrink:0; object-fit:cover;}
   .song-selected-chip .song-selected-text{flex:1; min-width:0;}
   .song-selected-chip .song-selected-title{font-family:'Oswald',sans-serif; font-size:13.5px; color:var(--parchment); font-weight:600;}
   .song-selected-chip .song-selected-artist{font-size:11.5px; color:var(--parchment-dim);}
@@ -1266,15 +1308,32 @@
     </div>
     <div id="songs-signed-in" style="display:none;">
       <p class="suggestion-note">Keep your own private list — nobody else can see this but you.</p>
-      <div class="form-grid">
-        <div class="full song-search-wrap">
-          <label>Search for a song</label>
-          <input type="text" id="song-search-input" placeholder="Search for a song, or just type your own to add it manually" autocomplete="off">
-          <div class="song-search-results" id="song-search-results" style="display:none;"></div>
+
+      <div class="songs-form-section song-search-wrap">
+        <label>Search for a song</label>
+        <input type="text" id="song-search-input" placeholder="Search by song or artist..." autocomplete="off">
+        <button id="song-search-clear" type="button" aria-label="Clear search" style="display:none;">&times;</button>
+        <div class="song-search-results" id="song-search-results" style="display:none;"></div>
+      </div>
+      <div class="songs-form-section" id="song-selected-box" style="display:none;">
+        <div class="song-selected-chip" id="song-selected-chip"></div>
+      </div>
+
+      <details class="add-panel song-manual-details">
+        <summary>Or add it yourself</summary>
+        <div class="form-grid">
+          <div>
+            <label>Song name</label>
+            <input type="text" id="song-manual-name" placeholder="e.g. Copperhead Road">
+          </div>
+          <div>
+            <label>Artist (optional)</label>
+            <input type="text" id="song-manual-artist" placeholder="e.g. Steve Earle">
+          </div>
         </div>
-        <div class="full" id="song-selected-box" style="display:none;">
-          <div class="song-selected-chip" id="song-selected-chip"></div>
-        </div>
+      </details>
+
+      <div class="songs-form-section form-grid">
         <div class="full">
           <label>Status</label>
           <select id="song-status">
@@ -2697,7 +2756,7 @@ function renderSongColumns(songs){
   });
 }
 
-let selectedSong = null; // {name, artist, artwork}
+let selectedSong = null; // {name, artist}
 let songSearchAbort = null;
 let songSearchDebounce = null;
 
@@ -2718,7 +2777,6 @@ function renderSelectedSong(){
   box.style.display = 'block';
   addBtn.disabled = false;
   chip.innerHTML = `
-    ${selectedSong.artwork ? `<img src="${selectedSong.artwork}" alt="">` : ''}
     <div class="song-selected-text">
       <div class="song-selected-title">${escapeHtml(selectedSong.name)}</div>
       ${selectedSong.artist ? `<div class="song-selected-artist">${escapeHtml(selectedSong.artist)}</div>` : ''}
@@ -2762,16 +2820,25 @@ async function runSongSearch(query){
   if(songSearchAbort) songSearchAbort.abort();
   songSearchAbort = new AbortController();
   try{
-    const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=8`;
-    const data = await fetchViaProxies(itunesUrl, songSearchAbort.signal);
-    const results = (data && data.results) || [];
+    const generalUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=8`;
+    const artistUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&attribute=artistTerm&limit=8`;
+    const [generalData, artistData] = await Promise.all([
+      fetchViaProxies(generalUrl, songSearchAbort.signal).catch(()=>({results:[]})),
+      fetchViaProxies(artistUrl, songSearchAbort.signal).catch(()=>({results:[]}))
+    ]);
+    const seen = new Set();
+    const results = [];
+    [...(generalData && generalData.results) || [], ...(artistData && artistData.results) || []].forEach(r=>{
+      if(seen.has(r.trackId)) return;
+      seen.add(r.trackId);
+      results.push(r);
+    });
     if(results.length===0){
       resultsBox.innerHTML = `<div class="song-search-status">No matches — you can still add "${escapeHtml(query)}" manually below.</div>`;
       return;
     }
-    resultsBox.innerHTML = results.map((r,i)=>`
+    resultsBox.innerHTML = results.slice(0, 10).map((r,i)=>`
       <div class="song-result" data-idx="${i}">
-        ${r.artworkUrl60 ? `<img src="${r.artworkUrl60}" alt="">` : ''}
         <div class="song-result-text">
           <div class="song-result-title">${escapeHtml(r.trackName)}</div>
           <div class="song-result-artist">${escapeHtml(r.artistName)}</div>
@@ -2782,11 +2849,12 @@ async function runSongSearch(query){
       el.addEventListener('click', ()=>{
         const idx = parseInt(el.getAttribute('data-idx'));
         const r = results[idx];
-        selectedSong = { name: r.trackName, artist: r.artistName, artwork: r.artworkUrl60 };
+        selectedSong = { name: r.trackName, artist: r.artistName };
         renderSelectedSong();
         resultsBox.style.display = 'none';
         resultsBox.innerHTML = '';
         document.getElementById('song-search-input').value = '';
+        songSearchClearBtn.style.display = 'none';
       });
     });
   }catch(e){
@@ -2796,14 +2864,36 @@ async function runSongSearch(query){
   }
 }
 
+function updateSongAddBtnState(){
+  const manualName = document.getElementById('song-manual-name').value.trim();
+  document.getElementById('song-add-btn').disabled = !selectedSong && manualName.length===0;
+}
+
 const songSearchInput = document.getElementById('song-search-input');
+const songSearchClearBtn = document.getElementById('song-search-clear');
 songSearchInput.addEventListener('input', ()=>{
   const query = songSearchInput.value.trim();
+  songSearchClearBtn.style.display = query ? 'block' : 'none';
   selectedSong = null;
   renderSelectedSong();
-  document.getElementById('song-add-btn').disabled = query.length===0;
+  updateSongAddBtnState();
   clearTimeout(songSearchDebounce);
   songSearchDebounce = setTimeout(()=> runSongSearch(query), 350);
+});
+songSearchClearBtn.addEventListener('click', ()=>{
+  songSearchInput.value = '';
+  songSearchClearBtn.style.display = 'none';
+  selectedSong = null;
+  renderSelectedSong();
+  updateSongAddBtnState();
+  document.getElementById('song-search-results').style.display = 'none';
+  document.getElementById('song-search-results').innerHTML = '';
+  songSearchInput.focus();
+});
+document.getElementById('song-manual-name').addEventListener('input', ()=>{
+  selectedSong = null;
+  renderSelectedSong();
+  updateSongAddBtnState();
 });
 document.addEventListener('click', (e)=>{
   const wrap = document.querySelector('.song-search-wrap');
@@ -2815,10 +2905,11 @@ document.addEventListener('click', (e)=>{
 document.getElementById('song-add-btn').addEventListener('click', async ()=>{
   const status = document.getElementById('song-status').value;
   const note = document.getElementById('song-note');
-  const typed = songSearchInput.value.trim();
-  const song = selectedSong || (typed ? { name: typed, artist: null } : null);
+  const manualName = document.getElementById('song-manual-name').value.trim();
+  const manualArtist = document.getElementById('song-manual-artist').value.trim();
+  const song = selectedSong || (manualName ? { name: manualName, artist: manualArtist || null } : null);
   if(!song){
-    setNote(note, 'Search for a song and select it, or type a name first.', 'error');
+    setNote(note, 'Search for a song and select it, or type one in yourself below.', 'error');
     return;
   }
   if(!currentUser){
@@ -2841,6 +2932,9 @@ document.getElementById('song-add-btn').addEventListener('click', async ()=>{
     selectedSong = null;
     renderSelectedSong();
     songSearchInput.value = '';
+    songSearchClearBtn.style.display = 'none';
+    document.getElementById('song-manual-name').value = '';
+    document.getElementById('song-manual-artist').value = '';
     document.getElementById('song-status').value = 'working_on';
     loadSongs();
   }
