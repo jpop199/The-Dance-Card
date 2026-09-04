@@ -716,6 +716,19 @@
     border-radius:8px;
     overflow:hidden;
   }
+  .flag-banner{
+    font-family:'Oswald',sans-serif;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    text-align:center;
+    padding:7px 10px;
+  }
+  .flag-cancelled{background:var(--oxblood); color:var(--parchment);}
+  .flag-coming-soon{background:var(--brass); color:var(--ink);}
+  .flag-custom{background:none; color:var(--parchment-dim); border-bottom:1px solid var(--line-hair);}
+  .detail-card .flag-banner{margin:-18px -20px 14px; border-radius:3px 3px 0 0;}
   .venue-name{
     font-family:'Oswald',sans-serif;
     font-weight:600;
@@ -822,6 +835,19 @@
     transition:background-color .15s ease, color .15s ease, border-color .15s ease;
   }
   .social-link:hover{background:var(--brass-bright); border-color:var(--brass-bright); color:var(--ink);}
+  .claim-venue-btn{
+    background:none;
+    cursor:pointer;
+    font-family:'Oswald',sans-serif;
+  }
+  .claim-pending-note{
+    display:inline-block;
+    font-family:'Oswald',sans-serif;
+    font-size:11.5px;
+    font-style:italic;
+    color:var(--parchment-dim);
+    margin-top:4px;
+  }
   .venue-meta{
     font-size:13.5px;
     color:var(--parchment-dim);
@@ -1206,7 +1232,7 @@
     <div class="toggle">
       <button id="btn-list" class="active"><span class="btn-label">List</span></button>
       <button id="btn-map"><span class="btn-label">Map</span></button>
-      <button id="btn-myloc" style="display:none;"><span class="btn-label">My Location</span></button>
+      <button id="btn-myloc" style="display:none;"><span class="btn-label">My Location</span><span class="tab-badge" id="badge-myloc"></span></button>
       <button id="btn-suggestions" style="display:none;"><span class="btn-label">Suggestions</span><span class="tab-badge" id="badge-suggestions"></span></button>
       <button id="btn-feedback"><span class="btn-label">Feedback</span><span class="tab-badge" id="badge-feedback"></span></button>
       <button id="btn-songs"><span class="btn-label">Songs</span></button>
@@ -1262,7 +1288,11 @@
   </div>
 
   <div id="view-mylocation" style="display:none;">
-    <h2 class="day-heading">My Location</h2>
+    <h2 class="day-heading" id="myloc-heading">My Location</h2>
+    <div class="review-panel" id="claims-review-panel" style="display:none;">
+      <h3>Pending Venue Claims</h3>
+      <div id="claims-review-list"></div>
+    </div>
     <div id="my-location-list"></div>
   </div>
 
@@ -1363,7 +1393,7 @@
     </div>
   </div>
 
-  <details class="add-panel">
+  <details class="add-panel" id="add-location-panel">
     <summary id="add-panel-summary">Suggest a location for the card</summary>
     <p class="suggestion-note" id="add-panel-note">Anyone can suggest a floor — a developer reviews it before it goes live on the card.</p>
     <div class="form-grid">
@@ -1387,15 +1417,7 @@
         <label>Open floor dancing</label>
         <input type="text" id="f-openfloor" placeholder="e.g. 8:00 – 10:00 PM">
       </div>
-      <div>
-        <label>Swing / line ratio</label>
-        <div class="range-row">
-          <input type="number" id="f-swing" min="0" value="2" style="width:56px;">
-          <span style="color:var(--parchment-dim);">:</span>
-          <input type="number" id="f-line" min="0" value="1" style="width:56px;">
-          <span class="range-out" id="f-ratio-out">2:1 swing to line</span>
-        </div>
-      </div>
+      <!-- swing/line ratio input removed from UI for now — fSwing/fLine JS vars below are gone too, swingRatio/lineRatio default to 1:1 on submit -->
       <div class="full">
         <label>Night(s) it runs</label>
         <div class="days-check" id="f-days"></div>
@@ -1449,7 +1471,9 @@ function rowToLocation(row){
     days: row.days || [],
     ownerId: venue.owner_id,
     instagramUrl: venue.instagram_url,
-    websiteUrl: venue.website_url
+    websiteUrl: venue.website_url,
+    flagType: row.flag_type,
+    flagLabel: row.flag_label
   };
 }
 
@@ -1492,6 +1516,41 @@ async function loadFavorites(){
   const { data, error } = await sb.from('favorites').select('schedule_id').eq('user_id', currentUser.id);
   if(error){ console.error('Failed to load favorites:', describeSupabaseError(error), error); return; }
   (data || []).forEach(f=> favoriteIds.add(f.schedule_id));
+}
+
+let myClaimedVenueIds = new Set();
+
+async function loadMyClaims(){
+  myClaimedVenueIds = new Set();
+  if(!currentUser) return;
+  const { data, error } = await sb.from('venue_claims').select('venue_id').eq('user_id', currentUser.id);
+  if(error){ console.error('Failed to load my claims:', describeSupabaseError(error), error); return; }
+  (data || []).forEach(c=> myClaimedVenueIds.add(c.venue_id));
+}
+
+function claimVenueButton(l){
+  if(!currentUser) return '';
+  if(l.ownerId === currentUser.id) return '';
+  if(l.ownerId) return '';
+  if(myClaimedVenueIds.has(l.venueId)) return `<span class="claim-pending-note">Claim requested — a developer will review it.</span>`;
+  return `<button type="button" class="social-link claim-venue-btn" data-venue="${l.venueId}">Claim this venue</button>`;
+}
+
+async function submitVenueClaim(venueId){
+  if(!currentUser) return;
+  const message = prompt("Optional note for the developer (e.g. how they can verify you run this venue):") || null;
+  const { error } = await sb.from('venue_claims').insert({
+    venue_id: venueId,
+    user_id: currentUser.id,
+    email: currentUser.email,
+    message
+  });
+  if(error){
+    alert("Couldn't submit that claim: " + error.message);
+    return;
+  }
+  myClaimedVenueIds.add(venueId);
+  if(isDev) loadPendingCounts();
 }
 
 async function toggleFavorite(locationId){
@@ -1652,6 +1711,20 @@ function displayDomain(url){
   }
 }
 
+const FLAG_PRESETS = {
+  cancelled: { label: 'Cancelled This Week', cls: 'flag-cancelled' },
+  closed: { label: 'Temporarily Closed', cls: 'flag-cancelled' },
+  coming_soon: { label: 'Coming Soon', cls: 'flag-coming-soon' },
+  custom: { label: '', cls: 'flag-custom' }
+};
+
+function flagBanner(l){
+  if(!l.flagType) return '';
+  const preset = FLAG_PRESETS[l.flagType] || FLAG_PRESETS.custom;
+  const text = l.flagLabel || preset.label || 'Notice';
+  return `<div class="flag-banner ${preset.cls}">${escapeHtml(text)}</div>`;
+}
+
 function socialLinks(l){
   const links = [];
   if(l.instagramUrl) links.push(`<a class="social-link" href="${normalizeUrl(l.instagramUrl)}" target="_blank" rel="noopener">${instagramHandle(l.instagramUrl)}</a>`);
@@ -1763,6 +1836,7 @@ function renderList(){
     const rs = ratingStats[l.id] || {avg:0, count:0};
     return `
     <div class="venue-card">
+      ${flagBanner(l)}
       <div class="acc-block">
         <div class="card-header" data-acc-toggle>
           <span class="header-title">
@@ -1784,6 +1858,7 @@ function renderList(){
             <p class="venue-meta"><i>&#9679;</i><strong>Open floor:</strong> ${l.openFloor}</p>
             <p class="venue-meta"><i>&#9679;</i><strong>Price:</strong> ${l.price}</p>
             ${socialLinks(l)}
+            ${claimVenueButton(l)}
             <div class="rating-row">
               ${ratingWidget(l.id)}
             </div>
@@ -1810,6 +1885,14 @@ function renderList(){
       const locId = btn.getAttribute('data-loc');
       await toggleFavorite(locId);
       if(favoritesOnly){ refreshAfterSearchChange(); } else { renderList(); }
+    });
+  });
+  cardsEl.querySelectorAll('.claim-venue-btn').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const venueId = btn.getAttribute('data-venue');
+      await submitVenueClaim(venueId);
+      renderList();
     });
   });
   initAccordions(cardsEl);
@@ -1989,6 +2072,7 @@ function showDetail(l, groupPt){
   const rs = ratingStats[l.id] || {avg:0, count:0};
   detailCard.innerHTML = `
     ${backBtn}
+    ${flagBanner(l)}
     <div class="acc-block${groupPt ? ' expanded' : ''}">
       <div class="card-header" data-acc-toggle>
         <span class="header-title">
@@ -2009,6 +2093,7 @@ function showDetail(l, groupPt){
           <p class="venue-meta"><i>&#9679;</i><strong>Open floor:</strong> ${l.openFloor}</p>
           <p class="venue-meta"><i>&#9679;</i><strong>Price:</strong> ${l.price}</p>
           ${socialLinks(l)}
+          ${claimVenueButton(l)}
           <!-- ratio bar removed from UI for now — call ratioBar(l.swingRatio, l.lineRatio) here to restore it -->
           <div class="rating-row">
             <div class="ratio-label">Rating</div>
@@ -2040,6 +2125,14 @@ function showDetail(l, groupPt){
       e.stopPropagation();
       const locId = btn.getAttribute('data-loc');
       await toggleFavorite(locId);
+      showDetail(l, groupPt);
+    });
+  });
+  detailCard.querySelectorAll('.claim-venue-btn').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const venueId = btn.getAttribute('data-venue');
+      await submitVenueClaim(venueId);
       showDetail(l, groupPt);
     });
   });
@@ -2090,6 +2183,9 @@ function updateRibbonVisibility(){
   const searchBar = document.getElementById('search-bar');
   const searchVisible = currentView==='list' || currentView==='map';
   if(searchBar) searchBar.style.display = searchVisible ? 'flex' : 'none';
+
+  const addPanel = document.getElementById('add-location-panel');
+  if(addPanel) addPanel.style.display = searchVisible ? 'block' : 'none';
 }
 
 function render(){
@@ -2188,8 +2284,19 @@ favoritesOnlyBtn.addEventListener('click', ()=>{
   refreshAfterSearchChange();
 });
 
+function collapseAllAccordions(){
+  document.querySelectorAll('.acc-block.expanded').forEach(block=>{
+    const wrap = block.querySelector('.info-body-wrap');
+    if(wrap) wrap.style.maxHeight = '0px';
+    block.classList.remove('expanded');
+  });
+  const addPanel = document.getElementById('add-location-panel');
+  if(addPanel) addPanel.open = false;
+}
+
 function switchView(view){
   if(view===currentView) return;
+  collapseAllAccordions();
   const views = {
     list: { el: viewList, display: 'block' },
     map: { el: viewMap, display: 'grid' },
@@ -2229,14 +2336,8 @@ DAYS.forEach(d=>{
   fDays.appendChild(lbl);
 });
 
-const fSwing = document.getElementById('f-swing');
-const fLine = document.getElementById('f-line');
-const fRatioOut = document.getElementById('f-ratio-out');
-function updateRatioOut(){
-  fRatioOut.textContent = `${fSwing.value || 0}:${fLine.value || 0} swing to line`;
-}
-fSwing.addEventListener('input', updateRatioOut);
-fLine.addEventListener('input', updateRatioOut);
+// swing/line ratio inputs (f-swing, f-line, f-ratio-out) removed from the form
+// for now — new locations default to a 1:1 ratio on submit below.
 
 async function findOrCreateVenue({ name, address, city, lat, lng, instagramUrl, websiteUrl }){
   const { data: existing, error: findErr } = await sb.from('venues').select('*').eq('address', address).maybeSingle();
@@ -2255,8 +2356,8 @@ document.getElementById('add-btn').addEventListener('click', async ()=>{
   const address = document.getElementById('f-address').value.trim();
   const lessons = document.getElementById('f-lessons').value.trim();
   const openFloor = document.getElementById('f-openfloor').value.trim();
-  const swingRatio = parseInt(fSwing.value) || 0;
-  const lineRatio = parseInt(fLine.value) || 0;
+  const swingRatio = 1;
+  const lineRatio = 1;
   const days = Array.from(fDays.querySelectorAll('input:checked')).map(c=>c.value);
   const instagramUrl = document.getElementById('f-instagram').value.trim();
   const websiteUrl = document.getElementById('f-website').value.trim();
@@ -2332,7 +2433,6 @@ document.getElementById('add-btn').addEventListener('click', async ()=>{
   document.getElementById('f-openfloor').value='';
   document.getElementById('f-instagram').value='';
   document.getElementById('f-website').value='';
-  fSwing.value=2; fLine.value=1; updateRatioOut();
   fDays.querySelectorAll('input').forEach(c=>c.checked=false);
 });
 
@@ -2367,18 +2467,28 @@ function clearPrivilegedUI(){
     const el = document.getElementById(id);
     if(el) el.innerHTML = '';
   });
+  const claimsPanel = document.getElementById('claims-review-panel');
+  if(claimsPanel) claimsPanel.style.display = 'none';
+  const claimsList = document.getElementById('claims-review-list');
+  if(claimsList) claimsList.innerHTML = '';
+  const myLocBadge = document.getElementById('badge-myloc');
+  if(myLocBadge) myLocBadge.textContent = '';
 }
 
 async function loadPendingCounts(){
   if(!isDev) return;
   const suggBadge = document.getElementById('badge-suggestions');
   const fbBadge = document.getElementById('badge-feedback');
+  const claimsBadge = document.getElementById('badge-myloc');
   const { count: suggCount, error: suggErr } = await sb.from('suggestions').select('*', { count:'exact', head:true });
   if(suggErr) console.error('Failed to load suggestion count', suggErr);
   if(suggBadge) suggBadge.textContent = (suggCount && !suggErr) ? String(suggCount) : '';
   const { count: fbCount, error: fbErr } = await sb.from('feedback').select('*', { count:'exact', head:true }).eq('status','open');
   if(fbErr) console.error('Failed to load feedback count', fbErr);
   if(fbBadge) fbBadge.textContent = (fbCount && !fbErr) ? String(fbCount) : '';
+  const { count: claimsCount, error: claimsErr } = await sb.from('venue_claims').select('*', { count:'exact', head:true });
+  if(claimsErr) console.error('Failed to load claims count', claimsErr);
+  if(claimsBadge) claimsBadge.textContent = (claimsCount && !claimsErr) ? String(claimsCount) : '';
 }
 
 function updateRoleUI(){
@@ -2401,8 +2511,10 @@ function updateRoleUI(){
   } else if(currentView==='suggestions'){
     switchView('list');
   }
-  btnMyLoc.style.display = isContributor ? 'inline-block' : 'none';
-  if(isContributor){
+  btnMyLoc.style.display = (isContributor || isDev) ? 'inline-block' : 'none';
+  const myLocBtnLabel = document.querySelector('#btn-myloc .btn-label');
+  if(myLocBtnLabel) myLocBtnLabel.textContent = isDev ? 'Manage Venues' : 'My Location';
+  if(isContributor || isDev){
     if(currentView==='myloc') buildMyLocationPanel();
   } else if(currentView==='myloc'){
     switchView('list');
@@ -2412,11 +2524,70 @@ function updateRoleUI(){
   }
 }
 
+async function loadVenueClaims(){
+  const panel = document.getElementById('claims-review-panel');
+  const list = document.getElementById('claims-review-list');
+  if(!isDev){ panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  const { data, error } = await sb.from('venue_claims').select('*, venues(name, address, city)').order('created_at', { ascending:false });
+  if(error){
+    list.innerHTML = `<p class="detail-hint">Couldn't load claims.</p>`;
+    console.error(error);
+    return;
+  }
+  if(!data || data.length===0){
+    list.innerHTML = `<p class="detail-hint">No pending venue claims right now.</p>`;
+    return;
+  }
+  list.innerHTML = data.map(c=>`
+    <div class="review-card" data-id="${c.id}">
+      <p class="venue-name">${(c.venues && c.venues.name) || 'Unknown venue'}</p>
+      <p class="venue-meta"><i>&#9679;</i><strong>Address:</strong> ${(c.venues && c.venues.address) || ''}</p>
+      <p class="venue-meta"><i>&#9679;</i><strong>Requested by:</strong> ${c.email || c.user_id}</p>
+      ${c.message ? `<p class="venue-meta"><i>&#9679;</i><strong>Note:</strong> ${c.message}</p>` : ''}
+      <div class="review-actions">
+        <button class="review-btn approve" data-action="approve" data-id="${c.id}">Approve</button>
+        <button class="review-btn reject" data-action="reject" data-id="${c.id}">Reject</button>
+      </div>
+    </div>
+  `).join("");
+  list.querySelectorAll('.review-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.getAttribute('data-id');
+      const action = btn.getAttribute('data-action');
+      const claim = data.find(c=>c.id===id);
+      btn.closest('.review-card').style.opacity = '0.5';
+      if(action==='approve' && claim){
+        const { data: profile, error: profErr } = await sb.from('profiles').select('role').eq('id', claim.user_id).maybeSingle();
+        if(profErr){ alert('Could not approve: ' + profErr.message); return; }
+        if(!profile || profile.role !== 'developer'){
+          const { error: roleErr } = await sb.from('profiles').update({ role:'contributor' }).eq('id', claim.user_id);
+          if(roleErr){ alert('Could not approve: ' + roleErr.message); return; }
+        }
+        const { error: venueErr } = await sb.from('venues').update({ owner_id: claim.user_id }).eq('id', claim.venue_id);
+        if(venueErr){ alert('Could not approve: ' + venueErr.message); return; }
+      }
+      const { error: delErr } = await sb.from('venue_claims').delete().eq('id', id);
+      if(delErr) console.error(delErr);
+      await loadLocations();
+      render();
+      if(mapInitialized) drawMarkers();
+      loadVenueClaims();
+      loadPendingCounts();
+    });
+  });
+}
+
 function buildMyLocationPanel(){
   const list = document.getElementById('my-location-list');
-  const owned = locations.filter(l=> l.ownerId === (currentUser && currentUser.id));
+  const heading = document.getElementById('myloc-heading');
+  if(heading) heading.textContent = isDev ? 'Manage Venues' : 'My Location';
+  loadVenueClaims();
+  const owned = isDev ? locations : locations.filter(l=> l.ownerId === (currentUser && currentUser.id));
   if(owned.length===0){
-    list.innerHTML = `<p class="detail-hint">No venue is linked to your account yet — ask a developer to assign one to you.</p>`;
+    list.innerHTML = isDev
+      ? `<p class="detail-hint">No venues in the database yet.</p>`
+      : `<p class="detail-hint">No venue is linked to your account yet — ask a developer to assign one to you.</p>`;
     return;
   }
   // Group schedules by venue (usually just one venue, but handle multiple gracefully)
@@ -2470,6 +2641,20 @@ function buildMyLocationPanel(){
                 <input type="number" class="ml-line" min="0" value="${l.lineRatio}" style="width:56px;">
               </div>
             </div>
+            <div>
+              <label>Status flag</label>
+              <select class="ml-flag-type">
+                <option value="" ${!l.flagType ? 'selected' : ''}>None</option>
+                <option value="cancelled" ${l.flagType==='cancelled' ? 'selected' : ''}>Cancelled This Week</option>
+                <option value="closed" ${l.flagType==='closed' ? 'selected' : ''}>Temporarily Closed</option>
+                <option value="coming_soon" ${l.flagType==='coming_soon' ? 'selected' : ''}>Coming Soon</option>
+                <option value="custom" ${l.flagType==='custom' ? 'selected' : ''}>Custom message</option>
+              </select>
+            </div>
+            <div class="full ml-flag-custom-wrap" style="display:${l.flagType==='custom' ? 'block' : 'none'};">
+              <label>Custom flag text</label>
+              <input type="text" class="ml-flag-label" value="${l.flagType==='custom' ? (l.flagLabel || '') : ''}" placeholder="e.g. Moved to a new address this month">
+            </div>
           </div>
           <button class="add-btn ml-save" type="button" style="margin-top:12px;">Save changes</button>
           <p class="auth-note ml-note"></p>
@@ -2502,15 +2687,24 @@ function buildMyLocationPanel(){
 
   list.querySelectorAll('.ml-schedule').forEach(card=>{
     const id = card.getAttribute('data-id');
+    const flagSelect = card.querySelector('.ml-flag-type');
+    const flagCustomWrap = card.querySelector('.ml-flag-custom-wrap');
+    flagSelect.addEventListener('change', ()=>{
+      flagCustomWrap.style.display = flagSelect.value==='custom' ? 'block' : 'none';
+    });
     card.querySelector('.ml-save').addEventListener('click', async ()=>{
       const note = card.querySelector('.ml-note');
       setNote(note, '');
+      const flagType = flagSelect.value || null;
+      const flagLabel = flagType==='custom' ? (card.querySelector('.ml-flag-label').value.trim() || null) : null;
       const update = {
         price: card.querySelector('.ml-price').value.trim(),
         open_floor: card.querySelector('.ml-openfloor').value.trim(),
         lessons: card.querySelector('.ml-lessons').value.trim() || null,
         swing_ratio: parseInt(card.querySelector('.ml-swing').value) || 0,
-        line_ratio: parseInt(card.querySelector('.ml-line').value) || 0
+        line_ratio: parseInt(card.querySelector('.ml-line').value) || 0,
+        flag_type: flagType,
+        flag_label: flagLabel
       };
       const { error } = await sb.from('schedules').update(update).eq('id', id);
       if(error){
@@ -2561,6 +2755,7 @@ async function checkSession(){
   }
   await loadMyRatings();
   await loadFavorites();
+  await loadMyClaims();
   updateAuthUI();
 }
 
@@ -2599,6 +2794,7 @@ document.getElementById('auth-submit').addEventListener('click', async ()=>{
       await loadProfile();
       await loadMyRatings();
   await loadFavorites();
+  await loadMyClaims();
       updateAuthUI();
       render();
       if(mapInitialized) drawMarkers();
@@ -2615,6 +2811,7 @@ document.getElementById('auth-submit').addEventListener('click', async ()=>{
       await loadProfile();
       await loadMyRatings();
   await loadFavorites();
+  await loadMyClaims();
       updateAuthUI();
       render();
       if(mapInitialized) drawMarkers();
@@ -2632,6 +2829,7 @@ document.getElementById('auth-logout').addEventListener('click', async ()=>{
   userRole = null;
   myRatings = {};
   favoriteIds = new Set();
+  myClaimedVenueIds = new Set();
   favoritesOnly = false;
   const favBtn = document.getElementById('favorites-only-btn');
   if(favBtn) favBtn.classList.remove('active');
